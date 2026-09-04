@@ -217,7 +217,8 @@ const SECTIONS = [
       showIf:v=> v["Recurring Event"] && v["Recurring Event"]!=="None" },
     { key:"Virtual Event", label:"Will your event take place virtually?", type:"select", required:true,
       options:["No","Yes"] },
-    { key:"Event Location", label:"Event Location", type:"select", required:true,
+    { key:"Event Location", label:"Event Location", type:"multiselect", required:true, join:" - ",
+      help:"Select one or more locations.",
       optionsBy:v=> locationsFor(v["Region"]),
       showIf:v=> v["Virtual Event"]!=="Yes" },
     { key:"Venue Name", label:"Venue Name", type:"text", required:true, half:true,
@@ -322,26 +323,32 @@ function buildField(def){
       s.value = val; };
     wrap.appendChild(s);
   } else if(def.type==='multiselect'){
-    values[def.key]=[];
+    if(!Array.isArray(values[def.key])) values[def.key]=[];
     const box = el('div',{class:'checks'});
-    (def.options||[]).map(norm).forEach(o=>{
-      const lab = el('label',{class:'chk'});
-      const cb = el('input',{type:'checkbox',value:o.value});
-      cb.addEventListener('change',()=>{
-        const arr = values[def.key];
-        if(cb.checked){ if(arr.indexOf(o.value)===-1) arr.push(o.value); lab.classList.add('sel'); }
-        else { values[def.key]=arr.filter(x=>x!==o.value); lab.classList.remove('sel'); }
-        onChange();
+    const buildChecks = ()=>{
+      const opts = (def.optionsBy ? def.optionsBy(values) : (def.options||[])).map(norm);
+      values[def.key] = (values[def.key]||[]).filter(v=> opts.some(o=>o.value===v)); // drop selections no longer valid
+      box.innerHTML='';
+      opts.forEach(o=>{
+        const lab = el('label',{class:'chk'});
+        const cb = el('input',{type:'checkbox',value:o.value});
+        if(values[def.key].indexOf(o.value)!==-1){ cb.checked=true; lab.classList.add('sel'); }
+        cb.addEventListener('change',()=>{
+          const arr = values[def.key];
+          if(cb.checked){ if(arr.indexOf(o.value)===-1) arr.push(o.value); lab.classList.add('sel'); }
+          else { values[def.key]=arr.filter(x=>x!==o.value); lab.classList.remove('sel'); }
+          onChange();
+        });
+        lab.appendChild(cb);
+        const txt = el('div'); txt.appendChild(document.createTextNode(o.label));
+        if(o.desc) txt.appendChild(el('div',{class:'chk-desc'}, o.desc));
+        lab.appendChild(txt);
+        box.appendChild(lab);
       });
-      lab.appendChild(cb);
-      const txt = el('div'); txt.appendChild(document.createTextNode(o.label));
-      if(o.desc) txt.appendChild(el('div',{class:'chk-desc'}, o.desc));
-      lab.appendChild(txt);
-      box.appendChild(lab);
-    });
-    setFn = (arr)=>{ arr = Array.isArray(arr)? arr.map(String) : []; values[def.key]=arr.slice();
-      Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), cb=>{
-        const on = arr.indexOf(cb.value)!==-1; cb.checked=on; cb.parentElement.classList.toggle('sel', on); }); };
+    };
+    buildChecks();
+    if(def.optionsBy) rebuild = buildChecks;
+    setFn = (arr)=>{ values[def.key] = Array.isArray(arr)? arr.map(String) : []; buildChecks(); };
     wrap.appendChild(box);
   } else if(def.type==='textarea'){
     const t = el('textarea',{id});
@@ -423,7 +430,7 @@ function buildPayload(){
     const {wrap,def}=fieldEls[key];
     let v = values[key];
     if(wrap.hidden){ v = (def.type==='multiselect')? [] : ''; }
-    if(def.type==='multiselect'){ fr[key] = Array.isArray(v)? v : []; }
+    if(def.type==='multiselect'){ const a = Array.isArray(v)? v : []; fr[key] = def.join ? a.join(def.join) : a; }
     else { fr[key] = v==null? '' : String(v); }
   }
   ARRAY_KEYS.forEach(k=>{ if(!(k in fr)) fr[k]=[]; });
@@ -465,7 +472,7 @@ const PREFILL_MAP = {
   "Event Title":{k:"Event Title",dec:1}, "Event Type":{k:"Event Type"}, "Event Description":{k:"Event Description",dec:1},
   "Event Start Date":{k:"Event Start Date",date:1}, "Start Time":{k:"Start Time",time:1}, "End Time":{k:"End Time",time:1},
   "Recurring Event":{k:"Recurring Event"}, "Repeat Occurrences":{k:"Number Of Repeat Occurrences"}, "Virtually":{k:"Virtual Event"},
-  "Location":{k:"Event Location",single:1}, "Venue Name":{k:"Venue Name",dec:1}, "Venue Address":{k:"Venue Address",dec:1},
+  "Location":{k:"Event Location",multi:1}, "Venue Name":{k:"Venue Name",dec:1}, "Venue Address":{k:"Venue Address",dec:1},
   "Notes on Conflict":{k:"Notes on Conflicts",dec:1}, "Board Portfolio":{k:"Responsible Board"},
   "Area of Focus":{k:"Area of Focus",dec:1}, "Objective":{k:"Objective",dec:1},
   "Collaborating Boards":{k:"Collaborating Boards",multi:1}, "Audience":{k:"Audience",multi:1},
