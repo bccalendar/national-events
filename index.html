@@ -21,10 +21,19 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg-page);color:var(--text-main);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5}
   .wrap{max-width:860px;margin:0 auto;padding:24px 16px 60px}
-  header.top{display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--border);border-bottom:4px solid var(--primary);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-  header.top img{height:52px;width:auto}
+  header.top{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--border);border-bottom:4px solid var(--primary);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  header.top img{width:150px;max-width:38vw;height:auto;flex:none}
   h1{font-size:22px;margin:0;color:var(--accent)}
   .sub{color:var(--text-muted);font-size:13px;margin:2px 0 0}
+  @media(max-width:520px){
+    header.top{gap:12px;padding:14px 16px}
+    header.top img{width:110px}
+    h1{font-size:18px}
+    .sub{font-size:12px}
+    .wrap{padding:16px 12px 48px}
+    .card{padding:16px 14px 4px}
+    .intro{padding:12px 14px;font-size:12.5px}
+  }
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 20px 8px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
   .card h2{font-size:15px;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
   .field{margin-bottom:16px}
