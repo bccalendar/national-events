@@ -90,7 +90,7 @@
    1) SETTINGS
    ============================================================================ */
 const FLOW_URL = "https://default98d027077ed646d2acf222ebdd2d5c.17.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/02/workflows/296063f569bc4eaf87cd4fa3e2d43cbb/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=i5srnnoXynkkmhK4IAlXhocTgvp_-tOHucExE59nBmY";
-const DASHBOARD_URL = "";
+const DASHBOARD_URL = "https://default98d027077ed646d2acf222ebdd2d5c.17.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/26/workflows/4dc26a4bca92432bb847c47860e3667f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=qlK5yTiztt4951SYCmr6KoomyqGe1HX5y1XWguGpyIA";
 const TIME_STEP = 15; // minutes between time options (set 30 for half-hour only)
 
 /* ============================================================================
@@ -302,7 +302,7 @@ function buildField(def){
   const wrap = el('div',{class:'field','data-key':def.key});
   const id = 'f_'+def.key.replace(/[^a-z0-9]/gi,'_');
   wrap.appendChild(el('label',{for:id}, def.label + (def.required?' <span class="req">*</span>':'')));
-  let rebuild = null;
+  let rebuild = null, setFn = null;
 
   if(def.type==='select' || def.type==='time'){
     const s = el('select',{id});
@@ -317,6 +317,9 @@ function buildField(def){
     fill();
     s.addEventListener('change',()=>{ values[def.key]=s.value; onChange(); });
     if(def.optionsBy) rebuild = fill;
+    setFn = (val)=>{ val = val==null?'':String(val); values[def.key]=val;
+      if(val && !Array.prototype.some.call(s.options, o=>o.value===val)) s.appendChild(el('option',{value:val}, val));
+      s.value = val; };
     wrap.appendChild(s);
   } else if(def.type==='multiselect'){
     values[def.key]=[];
@@ -336,20 +339,25 @@ function buildField(def){
       lab.appendChild(txt);
       box.appendChild(lab);
     });
+    setFn = (arr)=>{ arr = Array.isArray(arr)? arr.map(String) : []; values[def.key]=arr.slice();
+      Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), cb=>{
+        const on = arr.indexOf(cb.value)!==-1; cb.checked=on; cb.parentElement.classList.toggle('sel', on); }); };
     wrap.appendChild(box);
   } else if(def.type==='textarea'){
     const t = el('textarea',{id});
     t.addEventListener('input',()=>{ values[def.key]=t.value; });
+    setFn = (val)=>{ val = val==null?'':String(val); values[def.key]=val; t.value=val; };
     wrap.appendChild(t);
   } else {
     const inp = el('input',{id,type:def.type||'text'});
     if(def.type==='number' && def.min!=null) inp.setAttribute('min', def.min);
     inp.addEventListener('input',()=>{ values[def.key]=inp.value; });
+    setFn = (val)=>{ val = val==null?'':String(val); values[def.key]=val; inp.value=val; };
     wrap.appendChild(inp);
   }
   wrap.appendChild(el('div',{class:'err'},'This field is required.'));
   if(def.help) wrap.appendChild(el('div',{class:'help'}, def.help));
-  fieldEls[def.key]={wrap, def, rebuild};
+  fieldEls[def.key]={wrap, def, rebuild, set:setFn};
   return wrap;
 }
 
@@ -448,12 +456,57 @@ function showSuccess(data){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+// ---- edit prefill (fetch existing event from the Dashboard flow) ----
+function dec(v){ if(v==null) return ''; try{ return decodeURIComponent(String(v)).replace(/\+/g,' '); }catch(e){ return String(v); } }
+function splitDelimited(s){ s=dec(s).replace(/^[-–—]\s*/,''); var p=s.split(/\s+[-–—]\s+/).map(x=>x.trim()).filter(Boolean); return p.length?p:(s?[s]:[]); }
+function parseMulti(data){ if(data==null||data===''||data==='[]') return []; try{ var p=typeof data==='string'?JSON.parse(data):data; if(Array.isArray(p)){ var out=[]; p.forEach(it=>{ out=out.concat(splitDelimited(it&&it.Value!=null?it.Value:it)); }); return out; } }catch(e){} return splitDelimited(data); }
+// dashboard eventData key -> {form key, decode?, kind}
+const PREFILL_MAP = {
+  "Event Title":{k:"Event Title",dec:1}, "Event Type":{k:"Event Type"}, "Event Description":{k:"Event Description",dec:1},
+  "Event Start Date":{k:"Event Start Date",date:1}, "Start Time":{k:"Start Time",time:1}, "End Time":{k:"End Time",time:1},
+  "Recurring Event":{k:"Recurring Event"}, "Repeat Occurrences":{k:"Number Of Repeat Occurrences"}, "Virtually":{k:"Virtual Event"},
+  "Location":{k:"Event Location",single:1}, "Venue Name":{k:"Venue Name",dec:1}, "Venue Address":{k:"Venue Address",dec:1},
+  "Notes on Conflict":{k:"Notes on Conflicts",dec:1}, "Board Portfolio":{k:"Responsible Board"},
+  "Area of Focus":{k:"Area of Focus",dec:1}, "Objective":{k:"Objective",dec:1},
+  "Collaborating Boards":{k:"Collaborating Boards",multi:1}, "Audience":{k:"Audience",multi:1},
+  "Target Segments":{k:"Target Segments",multi:1}, "Services Required":{k:"Services needed",multi:1},
+  "Room Booking":{k:"Room Booking",multi:1}, "Expected Attendees":{k:"Expected Number of Attendees"},
+  "Requester Name":{k:"Name",dec:1}, "Requester Email":{k:"Email Address",dec:1}, "Requester Phone":{k:"Phone Number",dec:1},
+  "Event Leads Summary":{k:"Event Leads",dec:1},
+  "Project Lead Name":{k:"Project Lead Name",dec:1}, "Project Lead Email":{k:"Project Lead Email",dec:1}, "Project Lead Phone":{k:"Project Lead Phone",dec:1},
+  "Day Lead Name":{k:"Day of Event Lead Name",dec:1}, "Day Lead Email":{k:"Day of Event Lead Email",dec:1}, "Day Lead Phone":{k:"Day of Event Lead Phone",dec:1},
+  "Serving Refreshments":{k:"Serving Refreshments"}, "Refreshment Details":{k:"Refreshment Details",dec:1},
+  "Ticketed Event":{k:"Ticketed Event"}, "Ticket Price":{k:"Ticket Price",dec:1}
+};
+function setField(k,val){ const fe=fieldEls[k]; if(fe && fe.set) fe.set(val); }
+async function prefillFromDashboard(){
+  if(DASHBOARD_URL.indexOf('http')!==0){ showError('Cannot load event for editing — DASHBOARD_URL is not set in the form.'); return; }
+  const btn=document.getElementById('submitBtn'); if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+  try{
+    const sep=DASHBOARD_URL.indexOf('?')>-1?'&':'?';
+    const url=DASHBOARD_URL+sep+'eventid='+encodeURIComponent(EDIT_ID)+'&region='+encodeURIComponent(PRESET_REGION);
+    const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json(); const ev=data.eventData||{};
+    if(PRESET_REGION) setField("Region", PRESET_REGION);
+    for(const src in PREFILL_MAP){ if(ev[src]==null) continue; const m=PREFILL_MAP[src]; if(!fieldEls[m.k]) continue;
+      let val=ev[src];
+      if(m.multi){ val=parseMulti(val); }
+      else if(m.single){ val=parseMulti(val)[0]||''; }
+      else { val=m.dec?dec(val):String(val); if(m.date){ const mm=String(val).match(/^\d{4}-\d{2}-\d{2}/); val=mm?mm[0]:val; } if(m.time){ val=String(val).trim().toLowerCase(); } }
+      setField(m.k, val);
+    }
+    onChange();
+    if(btn){ btn.disabled=false; btn.textContent='Save Changes'; }
+  }catch(e){ showError('Could not load event #'+EDIT_ID+' for editing: '+e.message); if(btn){ btn.disabled=false; btn.textContent='Save Changes'; } }
+}
+
 renderForm();
 if(EDIT_ID){ document.getElementById('formTitle').textContent='Edit Event Request';
   document.getElementById('formSub').textContent='Editing event #'+EDIT_ID+'. Material changes (date, time, location, etc.) will re-enter approval.'; }
-if(PRESET_REGION){ values["Region"]=PRESET_REGION; const sel=document.getElementById('f_Region'); if(sel) sel.value=PRESET_REGION; }
+if(PRESET_REGION){ setField("Region", PRESET_REGION); }
 onChange();
 form.addEventListener('submit', submit);
+if(EDIT_ID) prefillFromDashboard();
 </script>
 </body>
 </html>
