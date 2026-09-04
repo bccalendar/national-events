@@ -483,7 +483,8 @@ const PREFILL_MAP = {
   "Project Lead Name":{k:"Project Lead Name",dec:1}, "Project Lead Email":{k:"Project Lead Email",dec:1}, "Project Lead Phone":{k:"Project Lead Phone",dec:1},
   "Day Lead Name":{k:"Day of Event Lead Name",dec:1}, "Day Lead Email":{k:"Day of Event Lead Email",dec:1}, "Day Lead Phone":{k:"Day of Event Lead Phone",dec:1},
   "Serving Refreshments":{k:"Serving Refreshments"}, "Refreshment Details":{k:"Refreshment Details",dec:1},
-  "Ticketed Event":{k:"Ticketed Event"}, "Ticket Price":{k:"Ticket Price",dec:1}
+  "Ticketed Event":{k:"Ticketed Event"}, "Ticket Price":{k:"Ticket Price",dec:1},
+  "Has Budget":{k:"Has Budget"}, "Cost Breakdown":{k:"Cost Breakdown",dec:1}
 };
 function setField(k,val){ const fe=fieldEls[k]; if(fe && fe.set) fe.set(val); }
 async function prefillFromDashboard(){
