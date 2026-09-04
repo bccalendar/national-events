@@ -56,6 +56,12 @@
   #successPanel a.dash{display:inline-block;margin-top:14px;background:var(--primary);color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600}
   .spin{display:none;width:18px;height:18px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
+  .intro{background:color-mix(in srgb,var(--focus),transparent 92%);border-left:4px solid var(--focus);border-radius:8px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:var(--text-main)}
+  .intro p{margin:0 0 8px}
+  .intro ol{margin:6px 0 0;padding-left:20px}
+  .intro li{margin-bottom:6px}
+  .section-note{font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px}
+  .chk-desc{font-size:11px;color:var(--text-muted);margin-top:3px;font-weight:400;line-height:1.35}
 </style>
 </head>
 <body>
@@ -103,6 +109,28 @@ const REGIONS = [
   { label:"Quebec and Maritimes", value:"Quebec and Maritimes" }
 ];
 const SWO = "Southwest Ontario";
+
+// Region-specific intro shown once a Region is selected. Add other regions' text as needed.
+const REGION_INTRO = {
+  "British Columbia": `<p>Use this form to submit event requests to be Approved and added to the <strong>BC Institutional Calendar (BIC)</strong>. Please ensure that the event has been submitted a minimum of <strong>eight (8) weeks</strong> prior to the date of your event. This will allow the collaborating Board/Portfolios to provide the required support for the event in a timely manner.</p>
+  <p>The approval process is as follows:</p>
+  <ol>
+    <li>Check the calendar ahead of submission for any location, time or target segment conflicts. Please try to resolve any conflicts with Boards/Portfolios ahead of submission, if possible.</li>
+    <li>Submit your event using this form. This will generate an approval workflow to your Board/Portfolio Chair for Primary Approval, followed by Council for BC Honorary Secretary and/or ITREB for BC Honorary Secretary for Final Approval.</li>
+    <li>If your event is approved, you will receive a confirmation email and it will be added to the BIC. You can then proceed with planning your event.</li>
+    <li>If your event is not approved, you will receive an email with a comment explaining why the event was rejected. Once you have resolved this, you may resubmit a new request. If you need to add information regarding the resolution of the conflict or issue, use the 'Notes on Conflicts' field in the form.</li>
+    <li>If you are submitting a placeholder for your event, please put the word <strong>HOLD</strong> in the title so that others are aware this booking is tentative and may change.</li>
+  </ol>`,
+  "Southwest Ontario": `<p>Use this form to submit event requests to be Approved and added to the <strong>Council for Southwest Ontario Institutional Calendar (SWIC)</strong>. Please ensure that the event has been submitted a minimum of <strong>six (6) weeks</strong> prior to the date of your event. This will allow the collaborating Board/Portfolios to provide the required support for the event in a timely manner.</p>
+  <p>The approval process is as follows:</p>
+  <ol>
+    <li>Check the calendar ahead of submission for any location, time or target segment conflicts. Please try to resolve any conflicts with Boards/Portfolios ahead of submission, if possible.</li>
+    <li>Submit your event using this form. This will generate an approval workflow for Primary Approval, followed by Final Approval by the Institutional Delivery Excellence (IDE) Program Team.</li>
+    <li>If your event is approved, you will receive a confirmation email and it will be added to the SWIC. You can then proceed with planning your event.</li>
+    <li>If your event is not approved, you will receive an email with a comment explaining why the event was rejected. Once you have resolved this, you may resubmit a new request. If you need to add information regarding the resolution of the conflict or issue, use the 'Notes on Conflicts' field in the form.</li>
+    <li>If you are submitting a placeholder for your event, please put the word <strong>HOLD</strong> in the title so that others are aware this booking is tentative and may change.</li>
+  </ol>`
+};
 
 const BOARDS = [
   "Arts & Culture","ACCESS","Care for the Elderly (CFTE)","Communications & Publications","Community Assets",
@@ -155,7 +183,14 @@ function locationsFor(region){
 const ATTENDEES = ["0 - 25","26 - 50","51 - 100","101 - 200","201 - 499","500+"];
 const AUDIENCE = ["Jamat","Leadership","Ummah","External","Government","Other"];
 const TARGET_SEGMENTS = ["Early Childhood Development (ECD) (0-4 yrs)","Young (5-11 yrs)","Youth (12-17 yrs)","Post Secondary (18-25 yrs)","Young Adults (25-35 yrs)","Adults (35-54 yrs)","Seniors (55+ yrs)","All"];
-const SERVICES = ["Arts & Culture","Communications","Legal","Audio Visual","Transportation","Volunteer Management"];
+const SERVICES = [
+  { label:"Arts & Culture", value:"Arts & Culture", desc:"Music, Bands, Performance Arts, Visual Arts, etc." },
+  { label:"Communications", value:"Communications", desc:"Announcements, Communication & Marketing Plans, Digital Communications (iiCanada, Digital Al-Akhbar (DAA), Social Media, JamatKhana eBoards), Photos, Videos, Event Registration & Ticket Sales, etc." },
+  { label:"Legal", value:"Legal", desc:"Waivers, Contracts, etc." },
+  { label:"Audio Visual", value:"Audio Visual", desc:"Audio Visuals, Microphones, Speakers, Projector, Live Stream, etc." },
+  { label:"Transportation", value:"Transportation", desc:"Material or People Transportation (Bus/Shuttle)." },
+  { label:"Volunteer Management", value:"Volunteer Management", desc:"Event Resources (Setup, Takedown, Service, Food, Security, People Resources, etc.)." }
+];
 const EVENT_TYPES = ["Meeting","New Event","Program"];
 const EVENT_LEADS = ["Requester is the Project Lead and Day Lead","Requester is the Project Lead, but the Day Lead is someone else","Project Lead and Day Leads are someone else"];
 const EL_DPD = "Project Lead and Day Leads are someone else";
@@ -165,19 +200,20 @@ const EL_DDL = "Requester is the Project Lead, but the Day Lead is someone else"
    3) FORM DEFINITION  (key = FormResponse key the flow expects)
    ============================================================================ */
 const SECTIONS = [
-  { title:"📅 Calendar Details", fields:[
+  { title:"📅 Calendar Details", note:"This information is used to create the Institutional Calendar entry and room booking for your event.", fields:[
     { key:"Region", label:"Region", type:"select", required:true, options:REGIONS },
-    { key:"Event Title", label:"Event Title", type:"text", required:true },
+    { key:"Event Title", label:"Event Title", type:"text", required:true, help:"For a tentative booking, start the title with the word HOLD." },
     // Event Type is shown for all regions EXCEPT SWO (matches Drupal conditional):
     { key:"Event Type", label:"Event Type", type:"select", options:EVENT_TYPES,
       showIf:v=> v["Region"] && v["Region"]!==SWO },
     { key:"Event Description", label:"Event Description", type:"textarea", required:true },
     { key:"Event Start Date", label:"Event Start Date", type:"date", required:true },
-    { key:"Start Time", label:"Start Time", type:"time", required:true, half:true },
-    { key:"End Time", label:"End Time", type:"time", required:true, half:true },
+    { key:"Start Time", label:"Start Time", type:"time", required:true, half:true, help:"Include the setup time you'll need." },
+    { key:"End Time", label:"End Time", type:"time", required:true, half:true, help:"Include the takedown/cleanup time you'll need." },
     { key:"Recurring Event", label:"Is this a recurring event?", type:"select", required:true,
       options:["None","Daily","Weekly","Bi-Weekly","Monthly"] },
     { key:"Number Of Repeat Occurrences", label:"Number of Repeat Occurrences", type:"number", min:1, required:true,
+      help:"How many times the event repeats (a number).",
       showIf:v=> v["Recurring Event"] && v["Recurring Event"]!=="None" },
     { key:"Virtual Event", label:"Will your event take place virtually?", type:"select", required:true,
       options:["No","Yes"] },
@@ -188,21 +224,25 @@ const SECTIONS = [
       showIf:v=> v["Virtual Event"]!=="Yes" && v["Event Location"]==="Other" },
     { key:"Venue Address", label:"Venue Address", type:"textarea", required:true,
       showIf:v=> v["Virtual Event"]!=="Yes" && v["Event Location"]==="Other" },
-    { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea" }
+    { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea",
+      help:"Optional — if you had conflicts and resolved them, add notes for the approvers (e.g. \"resolved conflict with Board X for Event Y, please delete event Z\")." }
   ]},
   { title:"🎯 Event Details", fields:[
     { key:"Responsible Board", label:"Responsible Board / Portfolio", type:"select", required:true, options:BOARDS },
     { key:"Area of Focus", label:"Area of Focus", type:"select", required:true,
+      help:"Enter the area of focus / sub-team for your Board/Portfolio.",
       optionsBy:v=> v["Responsible Board"]===B_ITREB ? AOF_ITREB : (v["Responsible Board"]===B_YSB ? AOF_YSB : AOF_OTHER),
       showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
     { key:"Objective", label:"Objective", type:"select", required:true, options:OBJECTIVES,
+      help:"The objective of this event for your Board/Portfolio.",
       showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
     { key:"Audience", label:"Audience", type:"multiselect", required:true, options:AUDIENCE },
     // Target Segments only when Audience includes "Jamat":
     { key:"Target Segments", label:"Target Segments", type:"multiselect", required:true, options:TARGET_SEGMENTS,
       showIf:v=> Array.isArray(v["Audience"]) && v["Audience"].indexOf("Jamat")!==-1 },
     { key:"Collaborating Boards", label:"Collaborating Boards / Portfolios", type:"multiselect", options:BOARDS },
-    { key:"Services needed", label:"Services Needed", type:"multiselect", required:true, options:SERVICES },
+    { key:"Services needed", label:"Services Needed", type:"multiselect", required:true, options:SERVICES,
+      help:"Select all the services you'll require for your event." },
     { key:"Expected Number of Attendees", label:"Expected Number of Attendees", type:"select", required:true, options:ATTENDEES },
     // ---- SWO-only fields (shown only when Region = Southwest Ontario) ----
     { key:"Serving Refreshments", label:"Are you serving refreshments?", type:"select", required:true, options:["No","Yes"],
@@ -218,7 +258,7 @@ const SECTIONS = [
     { key:"Cost Breakdown", label:"Please provide a cost breakdown for the event", type:"textarea", required:true,
       showIf:v=> v["Region"]===SWO && v["Has Budget"]==="Yes" }
   ]},
-  { title:"👤 Contact Details", fields:[
+  { title:"👤 Contact Details", note:"This information is used for the Institutional Calendar entry and event coordination.", fields:[
     { key:"Name", label:"Your Name", type:"text", required:true, half:true },
     { key:"Email Address", label:"Your Email", type:"email", required:true, validate:"email", half:true },
     { key:"Phone Number", label:"Your Phone", type:"tel", required:true, validate:"phone", half:true },
@@ -290,7 +330,10 @@ function buildField(def){
         else { values[def.key]=arr.filter(x=>x!==o.value); lab.classList.remove('sel'); }
         onChange();
       });
-      lab.appendChild(cb); lab.appendChild(document.createTextNode(' '+o.label));
+      lab.appendChild(cb);
+      const txt = el('div'); txt.appendChild(document.createTextNode(o.label));
+      if(o.desc) txt.appendChild(el('div',{class:'chk-desc'}, o.desc));
+      lab.appendChild(txt);
       box.appendChild(lab);
     });
     wrap.appendChild(box);
@@ -311,9 +354,11 @@ function buildField(def){
 }
 
 function renderForm(){
+  form.appendChild(el('div',{class:'intro',id:'regionIntro',hidden:'hidden'}));
   SECTIONS.forEach(sec=>{
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',null, sec.title));
+    if(sec.note) card.appendChild(el('div',{class:'section-note'}, sec.note));
     let rowBuf=[];
     const flush=()=>{ if(rowBuf.length){ const r=el('div',{class:'row2'}); rowBuf.forEach(f=>r.appendChild(f)); card.appendChild(r); rowBuf=[]; } };
     sec.fields.forEach(def=>{
@@ -335,9 +380,15 @@ function visible(def){
   if(def.showIf && !def.showIf(values)) return false;
   return true;
 }
+function updateRegionIntro(){
+  const box = document.getElementById('regionIntro'); if(!box) return;
+  const t = REGION_INTRO[values["Region"]];
+  if(t){ box.innerHTML = t; box.hidden = false; } else { box.innerHTML=''; box.hidden = true; }
+}
 function onChange(){
   for(const key in fieldEls){ if(fieldEls[key].rebuild) fieldEls[key].rebuild(); }
   for(const key in fieldEls){ fieldEls[key].wrap.hidden = !visible(fieldEls[key].def); }
+  updateRegionIntro();
 }
 
 function setErr(wrap, msg){ wrap.classList.add('invalid'); const e=wrap.querySelector('.err'); if(e&&msg) e.textContent=msg; }
