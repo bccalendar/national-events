@@ -96,10 +96,19 @@ const DASHBOARD_URL = "";
       regions: [..]  -> field shows only for those Region values
       showIf: (v) => boolean  -> v is the current values object
    ============================================================================ */
+// IMPORTANT: `value` must equal the Title in your Region Config list (the flow filters Title eq '<Region>').
+// These are set to the full labels (what Drupal submits). If your config Titles use short codes
+// (e.g. "swo"), change each `value` to match — the `label` can stay friendly.
 const REGIONS = [
-  { label: "British Columbia", value: "BC" },
-  { label: "Southwest Ontario", value: "SWO" },
-  { label: "Prairies", value: "Prairies" }
+  { label: "All Canada", value: "All Canada" },
+  { label: "British Columbia", value: "British Columbia" },
+  { label: "Edmonton", value: "Edmonton" },
+  { label: "Toronto", value: "Toronto" },
+  { label: "Southwest Ontario", value: "Southwest Ontario" },
+  { label: "Northeast Ontario", value: "Northeast Ontario" },
+  { label: "All Ontario", value: "All Ontario" },
+  { label: "Prairies", value: "Prairies" },
+  { label: "Quebec and Maritimes", value: "Quebec and Maritimes" }
 ];
 
 // Shared board/portfolio list (used for Responsible Board and Collaborating Boards)
@@ -131,17 +140,13 @@ const SECTIONS = [
       showIf:v=> v["Recurring Event"] && v["Recurring Event"]!=="None" },
     { key:"Virtual Event", label:"Will your event take place virtually?", type:"select",
       options:[{label:"No",value:"No"},{label:"Yes",value:"Yes"}] },
-    // Event Location: SWO location list is not in the solution, so this is free-text.
-    // To make it a dropdown, change type to "multiselect" (add join:" - ") and add an options:[...] array.
-    { key:"Event Location", label:"Event Location", type:"text",
+    // Event Location (SWO list). For other regions, swap this options array for that region's locations.
+    { key:"Event Location", label:"Event Location", type:"select",
       showIf:v=> v["Virtual Event"]!=="Yes",
-      help:"Enter the jamatkhana / location for this event." },
-    // Room Booking must stay a multiselect (the flow expects an array). Replace with SWO's real rooms,
-    // or delete this whole field if SWO doesn't use room booking.
-    { key:"Room Booking", label:"Room Booking", type:"multiselect",
-      showIf:v=> v["Virtual Event"]!=="Yes",
-      help:"Replace these placeholders with SWO's actual rooms (or remove this field).",
-      options:["Prayer Hall","Social Hall","Multipurpose Room","Classroom"] },
+      options:["All Jamatkhanas","Brantford","Brampton","Guelph","Halton","Hamilton","Kitchener–Headquarters","London","Meadowvale","Mississauga","NiagaraFalls","Windsor","Other"] },
+    // Room Booking: SWO does not use room booking, so no field here. The payload still sends
+    // "Room Booking": [] automatically (see ARRAY_KEYS). To enable it for a region, add:
+    //   { key:"Room Booking", label:"Room Booking", type:"multiselect", showIf:v=> v["Virtual Event"]!=="Yes", options:[...] },
     { key:"Venue Name", label:"Venue Name", type:"text", showIf:v=> v["Virtual Event"]!=="Yes", half:true },
     { key:"Venue Address", label:"Venue Address", type:"textarea", showIf:v=> v["Virtual Event"]!=="Yes" },
     { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea" }
