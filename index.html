@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>National Event Request Form</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
 <style>
   :root{
     --bg-page:#f4f6f9; --card:#ffffff; --text-main:#1f2a37; --text-muted:#6b7280;
@@ -19,10 +21,10 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg-page);color:var(--text-main);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5}
   .wrap{max-width:860px;margin:0 auto;padding:24px 16px 60px}
-  header.top{display:flex;align-items:center;gap:14px;margin-bottom:8px}
-  header.top img{height:44px;width:auto}
+  header.top{display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--border);border-bottom:4px solid var(--primary);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  header.top img{height:52px;width:auto}
   h1{font-size:22px;margin:0;color:var(--accent)}
-  .sub{color:var(--text-muted);font-size:13px;margin:2px 0 22px}
+  .sub{color:var(--text-muted);font-size:13px;margin:2px 0 0}
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 20px 8px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
   .card h2{font-size:15px;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
   .field{margin-bottom:16px}
@@ -46,7 +48,7 @@
   .btn[disabled]{opacity:.6;cursor:not-allowed}
   .err{color:var(--primary);font-size:12px;margin-top:4px;display:none}
   .field.invalid .err{display:block}
-  .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--primary)}
+  .field.invalid input,.field.invalid select,.field.invalid textarea,.field.invalid .ms-control{border-color:var(--primary)}
   .banner{padding:12px 14px;border-radius:8px;font-size:14px;margin-bottom:16px;display:none}
   .banner.show{display:block}
   .banner.error{background:color-mix(in srgb,var(--primary),transparent 88%);color:var(--primary-2);border:1px solid var(--primary)}
@@ -62,6 +64,24 @@
   .intro li{margin-bottom:6px}
   .section-note{font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px}
   .chk-desc{font-size:11px;color:var(--text-muted);margin-top:3px;font-weight:400;line-height:1.35}
+  /* two-column compact layout */
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px}
+  .grid .field.full{grid-column:1 / -1}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  /* multiselect dropdown */
+  .ms{position:relative}
+  .ms-control{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text-main);font-size:14px;cursor:pointer;min-height:40px}
+  .ms.open .ms-control,.ms:focus .ms-control{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus),transparent 82%)}
+  .ms-summary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ms-summary.ph{color:var(--text-muted)}
+  .ms-caret{color:var(--text-muted);font-size:11px;flex:none;transition:transform .15s}
+  .ms.open .ms-caret{transform:rotate(180deg)}
+  .ms-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.14);max-height:280px;overflow:auto;padding:6px}
+  .ms-search{width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text-main);font-size:13px}
+  .ms-opt{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:6px;font-size:13px;cursor:pointer}
+  .ms-opt:hover{background:color-mix(in srgb,var(--focus),transparent 92%)}
+  .ms-opt input{margin-top:2px;flex:none}
+  .ms-empty{padding:10px 8px;font-size:12.5px;color:var(--text-muted)}
 </style>
 </head>
 <body>
@@ -237,7 +257,7 @@ const SECTIONS = [
       help:"Enter the area of focus / sub-team for your Board/Portfolio.",
       optionsBy:v=> v["Responsible Board"]===B_ITREB ? AOF_ITREB : (v["Responsible Board"]===B_YSB ? AOF_YSB : AOF_OTHER),
       showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
-    { key:"Objective", label:"Objective", type:"select", required:true, options:OBJECTIVES,
+    { key:"Objective", label:"Objective", type:"select", required:true, options:OBJECTIVES, full:true,
       help:"The objective of this event for your Board/Portfolio.",
       showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
     { key:"Audience", label:"Audience", type:"multiselect", required:true, options:AUDIENCE },
@@ -297,6 +317,8 @@ const fieldEls = {};
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function el(tag, attrs, html){ const e=document.createElement(tag); if(attrs) for(const k in attrs) e.setAttribute(k,attrs[k]); if(html!=null) e.innerHTML=html; return e; }
+function closeAllMs(){ document.querySelectorAll('.ms.open').forEach(m=>{ m.classList.remove('open'); const p=m.querySelector('.ms-panel'); if(p) p.hidden=true; }); }
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.ms')) closeAllMs(); });
 const norm = o => (typeof o==='string' ? {label:o, value:o} : o);
 function buildTimeOptions(){ const out=[]; for(let h=0;h<24;h++){ for(let m=0;m<60;m+=TIME_STEP){ const ap=h>=12?'pm':'am'; let h12=h%12; if(h12===0)h12=12; out.push(h12+':'+String(m).padStart(2,'0')+' '+ap); } } return out; }
 const TIME_OPTIONS = buildTimeOptions();
@@ -327,32 +349,60 @@ function buildField(def){
     wrap.appendChild(s);
   } else if(def.type==='multiselect'){
     if(!Array.isArray(values[def.key])) values[def.key]=[];
-    const box = el('div',{class:'checks'});
-    const buildChecks = ()=>{
-      const opts = (def.optionsBy ? def.optionsBy(values) : (def.options||[])).map(norm);
-      values[def.key] = (values[def.key]||[]).filter(v=> opts.some(o=>o.value===v)); // drop selections no longer valid
-      box.innerHTML='';
+    const ms = el('div',{class:'ms',tabindex:'0'});
+    const control = el('div',{class:'ms-control'});
+    const summary = el('span',{class:'ms-summary ph'},'— Select —');
+    control.appendChild(summary);
+    control.appendChild(el('span',{class:'ms-caret'},'▾'));
+    const panel = el('div',{class:'ms-panel'}); panel.hidden=true;
+    ms.appendChild(control); ms.appendChild(panel);
+    let searchInp=null;
+    const getOpts = ()=> (def.optionsBy ? def.optionsBy(values) : (def.options||[])).map(norm);
+    const updateSummary = ()=>{
+      const opts=getOpts(), sel=values[def.key]||[];
+      const labels=sel.map(v=>{const o=opts.find(x=>x.value===v);return o?o.label:v;});
+      if(labels.length===0){ summary.textContent='— Select —'; summary.classList.add('ph'); }
+      else { summary.textContent = labels.length<=3 ? labels.join(', ') : (labels.length+' selected'); summary.classList.remove('ph'); }
+    };
+    const buildPanel = ()=>{
+      const opts=getOpts();
+      values[def.key] = (values[def.key]||[]).filter(v=> opts.some(o=>o.value===v)); // drop invalid
+      panel.innerHTML='';
+      if(opts.length>8){
+        searchInp = el('input',{class:'ms-search',type:'text',placeholder:'Search…'});
+        searchInp.addEventListener('click',e=>e.stopPropagation());
+        searchInp.addEventListener('input',()=>{ const q=searchInp.value.toLowerCase();
+          panel.querySelectorAll('.ms-opt').forEach(o=>{ o.hidden = o.getAttribute('data-label').indexOf(q)===-1; }); });
+        panel.appendChild(searchInp);
+      }
       opts.forEach(o=>{
-        const lab = el('label',{class:'chk'});
+        const lab = el('label',{class:'ms-opt','data-label':o.label.toLowerCase()});
         const cb = el('input',{type:'checkbox',value:o.value});
-        if(values[def.key].indexOf(o.value)!==-1){ cb.checked=true; lab.classList.add('sel'); }
+        if(values[def.key].indexOf(o.value)!==-1) cb.checked=true;
         cb.addEventListener('change',()=>{
-          const arr = values[def.key];
-          if(cb.checked){ if(arr.indexOf(o.value)===-1) arr.push(o.value); lab.classList.add('sel'); }
-          else { values[def.key]=arr.filter(x=>x!==o.value); lab.classList.remove('sel'); }
-          onChange();
+          const arr=values[def.key];
+          if(cb.checked){ if(arr.indexOf(o.value)===-1) arr.push(o.value); }
+          else { values[def.key]=arr.filter(x=>x!==o.value); }
+          updateSummary(); onChange();
         });
         lab.appendChild(cb);
-        const txt = el('div'); txt.appendChild(document.createTextNode(o.label));
+        const txt=el('div'); txt.appendChild(document.createTextNode(o.label));
         if(o.desc) txt.appendChild(el('div',{class:'chk-desc'}, o.desc));
         lab.appendChild(txt);
-        box.appendChild(lab);
+        panel.appendChild(lab);
       });
+      if(!opts.length) panel.appendChild(el('div',{class:'ms-empty'},'No options available.'));
+      updateSummary();
     };
-    buildChecks();
-    if(def.optionsBy) rebuild = buildChecks;
-    setFn = (arr)=>{ values[def.key] = Array.isArray(arr)? arr.map(String) : []; buildChecks(); };
-    wrap.appendChild(box);
+    buildPanel();
+    control.addEventListener('click',(e)=>{ e.stopPropagation();
+      const willOpen = panel.hidden; closeAllMs();
+      if(willOpen){ panel.hidden=false; ms.classList.add('open');
+        if(searchInp){ searchInp.value=''; searchInp.dispatchEvent(new Event('input')); searchInp.focus(); } }
+    });
+    if(def.optionsBy) rebuild = buildPanel;
+    setFn = (arr)=>{ values[def.key] = Array.isArray(arr)? arr.map(String) : []; buildPanel(); };
+    wrap.appendChild(ms);
   } else if(def.type==='textarea'){
     const t = el('textarea',{id});
     t.addEventListener('input',()=>{ values[def.key]=t.value; });
@@ -377,14 +427,13 @@ function renderForm(){
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',null, sec.title));
     if(sec.note) card.appendChild(el('div',{class:'section-note'}, sec.note));
-    let rowBuf=[];
-    const flush=()=>{ if(rowBuf.length){ const r=el('div',{class:'row2'}); rowBuf.forEach(f=>r.appendChild(f)); card.appendChild(r); rowBuf=[]; } };
+    const grid = el('div',{class:'grid'});
     sec.fields.forEach(def=>{
       const w = buildField(def);
-      if(def.half){ rowBuf.push(w); if(rowBuf.length===2) flush(); }
-      else { flush(); card.appendChild(w); }
+      if(def.type==='textarea' || def.full) w.classList.add('full');
+      grid.appendChild(w);
     });
-    flush();
+    card.appendChild(grid);
     form.appendChild(card);
   });
   const act = el('div',{class:'actions'});
