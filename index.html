@@ -222,9 +222,9 @@ const SECTIONS = [
       optionsBy:v=> locationsFor(v["Region"]),
       showIf:v=> v["Virtual Event"]!=="Yes" },
     { key:"Venue Name", label:"Venue Name", type:"text", required:true, half:true,
-      showIf:v=> v["Virtual Event"]!=="Yes" && v["Event Location"]==="Other" },
+      showIf:v=> v["Virtual Event"]!=="Yes" && Array.isArray(v["Event Location"]) && v["Event Location"].indexOf("Other")!==-1 },
     { key:"Venue Address", label:"Venue Address", type:"textarea", required:true,
-      showIf:v=> v["Virtual Event"]!=="Yes" && v["Event Location"]==="Other" },
+      showIf:v=> v["Virtual Event"]!=="Yes" && Array.isArray(v["Event Location"]) && v["Event Location"].indexOf("Other")!==-1 },
     { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea",
       help:"Optional — if you had conflicts and resolved them, add notes for the approvers (e.g. \"resolved conflict with Board X for Event Y, please delete event Z\")." }
   ]},
