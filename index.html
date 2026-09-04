@@ -29,7 +29,7 @@
   .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
   .field .req{color:var(--primary)}
   .field .help{font-size:12px;color:var(--text-muted);margin-top:4px}
-  input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],input[type=time],select,textarea{
+  input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],select,textarea{
     width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text-main);font-size:14px;font-family:inherit}
   textarea{min-height:84px;resize:vertical}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus),transparent 82%)}
@@ -81,37 +81,29 @@
 
 <script>
 /* ============================================================================
-   1) SETTINGS — paste your flow URLs here after import
+   1) SETTINGS
    ============================================================================ */
-// POST URL of "National - New Event Request (Web)" flow (HTTP trigger).
 const FLOW_URL = "https://default98d027077ed646d2acf222ebdd2d5c.17.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/02/workflows/296063f569bc4eaf87cd4fa3e2d43cbb/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=i5srnnoXynkkmhK4IAlXhocTgvp_-tOHucExE59nBmY";
-// (Optional, for edit mode later) GET URL of "National - Event Dashboard" flow.
 const DASHBOARD_URL = "";
+const TIME_STEP = 15; // minutes between time options (set 30 for half-hour only)
 
 /* ============================================================================
-   2) CONFIG — everything below is meant to be customized freely.
-      Each field's `key` MUST match the flow's FormResponse key exactly.
-      type: text | textarea | date | time | number | email | tel | select | multiselect
-      multiselect -> sent as a JSON array (unless `join` is set -> joined string)
-      regions: [..]  -> field shows only for those Region values
-      showIf: (v) => boolean  -> v is the current values object
+   2) OPTION LISTS  (values are what the flow stores — must match Region Config / SharePoint)
    ============================================================================ */
-// IMPORTANT: `value` must equal the Title in your Region Config list (the flow filters Title eq '<Region>').
-// These are set to the full labels (what Drupal submits). If your config Titles use short codes
-// (e.g. "swo"), change each `value` to match — the `label` can stay friendly.
+// region value MUST equal the Title in your Region Config list:
 const REGIONS = [
-  { label: "All Canada", value: "All Canada" },
-  { label: "British Columbia", value: "British Columbia" },
-  { label: "Edmonton", value: "Edmonton" },
-  { label: "Toronto", value: "Toronto" },
-  { label: "Southwest Ontario", value: "Southwest Ontario" },
-  { label: "Northeast Ontario", value: "Northeast Ontario" },
-  { label: "All Ontario", value: "All Ontario" },
-  { label: "Prairies", value: "Prairies" },
-  { label: "Quebec and Maritimes", value: "Quebec and Maritimes" }
+  { label:"All Canada", value:"All Canada" },
+  { label:"British Columbia", value:"British Columbia" },
+  { label:"Edmonton", value:"Edmonton" },
+  { label:"Toronto", value:"Toronto" },
+  { label:"Southwest Ontario", value:"Southwest Ontario" },
+  { label:"Northeast Ontario", value:"Northeast Ontario" },
+  { label:"All Ontario", value:"All Ontario" },
+  { label:"Prairies", value:"Prairies" },
+  { label:"Quebec and Maritimes", value:"Quebec and Maritimes" }
 ];
+const SWO = "Southwest Ontario";
 
-// Shared board/portfolio list (used for Responsible Board and Collaborating Boards)
 const BOARDS = [
   "Arts & Culture","ACCESS","Care for the Elderly (CFTE)","Communications & Publications","Community Assets",
   "Community Services (Rites of Passage)","Conciliation & Arbitration Board (CAB)","Council for the Prairies",
@@ -123,100 +115,168 @@ const BOARDS = [
   "Aga Khan Foundation Canada (AKFC)","Aga Khan Museum (AKM)","Focus Canada","Global Encounters",
   "Global Centre for Pluralism (GCP)","World Partnership Golf","World Partnership Walk","Council for Canada"
 ];
+const B_ITREB = "Ismaili Tariqah & Religious Education Board (ITREB)";
+const B_YSB   = "Aga Khan Youth & Sports Board (YSB)";
+// Boards that show NO Area of Focus / Objective:
+const BOARDS_NO_AOF = ["Conciliation & Arbitration Board (CAB)","Grants & Review Board (GRB)","ACCESS"];
 
+const AOF_ITREB = ["Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Other"];
+const AOF_YSB   = ["Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth"];
+const AOF_OTHER = ["Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth","Other"];
+// NOTE: single Objective list for now. If you want objectives filtered by Area of Focus (as in Drupal),
+// send me the per-area objective sub-lists and I'll wire objectivesBy(area).
+const OBJECTIVES = [
+  "Strengthen Ismaili identity (YSB) - Young Adult",
+  "Strengthen Ismaili identity (YSB) - Youth",
+  "Increase access to religious education for Adults 18+",
+  "Increase access to religious education for ages 4-18 (BUI, ERP)",
+  "Enhance the quality of religious education via teacher training and development",
+  "All Ismaili youth will have the skills to be leaders in their discipline, within and outside the Shia Imami Ismaili community",
+  "Support and contribute to the development of resilient youth",
+  "All Ismaili youth will have a strong sense of identity, be able to articulate the values of and be ambassadors of the Shia Imami Ismaili community",
+  "All Ismaili youth will feel a sense of belonging within the Shia Imami Ismaili community",
+  "The Canadian Jamat will be healthy and active through their participation in organized/life sports and physical activity",
+  "Expand and strengthen sustainable integrated coordinated programming",
+  "Parental engagement",
+  "Training and religious education to Jamati Leadership"
+];
+
+// Per-region event-location lists:
+const LOC_SWO = ["All Jamatkhanas","Brantford","Brampton","Guelph","Halton","Hamilton","Kitchener–Headquarters","London","Meadowvale","Mississauga","NiagaraFalls","Windsor","Other"];
+const LOC_BC  = ["Ismaili Centre Vancouver Jamatkhana (Darkhana)","Headquarters Vancouver Jamatkhana","Richmond Jamatkhana","Burnaby Lake Jamatkhana","Tri-City Jamatkhana","Fraser Valley Jamatkhana","Downtown Jamatkhana","Other"];
+const LOC_PRAIRIES = ["Headquarters","Franklin","Northwest","South","Westwinds","Generations","All Calgary Jamatkhanas","External venue"];
+function locationsFor(region){
+  if(region===SWO) return LOC_SWO;
+  if(region==="British Columbia") return LOC_BC;
+  if(region==="Prairies") return LOC_PRAIRIES;
+  return ["Other"]; // add other regions' lists here as needed
+}
+
+const ATTENDEES = ["0 - 25","26 - 50","51 - 100","101 - 200","201 - 499","500+"];
+const AUDIENCE = ["Jamat","Leadership","Ummah","External","Government","Other"];
+const TARGET_SEGMENTS = ["Early Childhood Development (ECD) (0-4 yrs)","Young (5-11 yrs)","Youth (12-17 yrs)","Post Secondary (18-25 yrs)","Young Adults (25-35 yrs)","Adults (35-54 yrs)","Seniors (55+ yrs)","All"];
+const SERVICES = ["Arts & Culture","Communications","Legal","Audio Visual","Transportation","Volunteer Management"];
+const EVENT_TYPES = ["Meeting","New Event","Program"];
+const EVENT_LEADS = ["Requester is the Project Lead and Day Lead","Requester is the Project Lead, but the Day Lead is someone else","Project Lead and Day Leads are someone else"];
+const EL_DPD = "Project Lead and Day Leads are someone else";
+const EL_DDL = "Requester is the Project Lead, but the Day Lead is someone else";
+
+/* ============================================================================
+   3) FORM DEFINITION  (key = FormResponse key the flow expects)
+   ============================================================================ */
 const SECTIONS = [
-  { title: "📅 Calendar Details", fields: [
+  { title:"📅 Calendar Details", fields:[
     { key:"Region", label:"Region", type:"select", required:true, options:REGIONS },
     { key:"Event Title", label:"Event Title", type:"text", required:true },
-    { key:"Event Type", label:"Event Type", type:"select", regions:["Prairies"],
-      options:[{label:"Meeting",value:"Meeting"},{label:"New Event",value:"New Event"},{label:"Program",value:"Program"}] },
+    // Event Type is shown for all regions EXCEPT SWO (matches Drupal conditional):
+    { key:"Event Type", label:"Event Type", type:"select", options:EVENT_TYPES,
+      showIf:v=> v["Region"] && v["Region"]!==SWO },
     { key:"Event Description", label:"Event Description", type:"textarea", required:true },
     { key:"Event Start Date", label:"Event Start Date", type:"date", required:true },
     { key:"Start Time", label:"Start Time", type:"time", required:true, half:true },
     { key:"End Time", label:"End Time", type:"time", required:true, half:true },
-    { key:"Recurring Event", label:"Recurring Event", type:"select",
-      options:[{label:"None",value:"None"},{label:"Daily",value:"Daily"},{label:"Weekly",value:"Weekly"},{label:"Bi-Weekly",value:"Bi-Weekly"},{label:"Monthly",value:"Monthly"}] },
-    { key:"Number Of Repeat Occurrences", label:"Number of Repeat Occurrences", type:"number",
+    { key:"Recurring Event", label:"Is this a recurring event?", type:"select", required:true,
+      options:["None","Daily","Weekly","Bi-Weekly","Monthly"] },
+    { key:"Number Of Repeat Occurrences", label:"Number of Repeat Occurrences", type:"number", min:1, required:true,
       showIf:v=> v["Recurring Event"] && v["Recurring Event"]!=="None" },
-    { key:"Virtual Event", label:"Will your event take place virtually?", type:"select",
-      options:[{label:"No",value:"No"},{label:"Yes",value:"Yes"}] },
-    // Event Location (SWO list). For other regions, swap this options array for that region's locations.
-    { key:"Event Location", label:"Event Location", type:"select",
-      showIf:v=> v["Virtual Event"]!=="Yes",
-      options:["All Jamatkhanas","Brantford","Brampton","Guelph","Halton","Hamilton","Kitchener–Headquarters","London","Meadowvale","Mississauga","NiagaraFalls","Windsor","Other"] },
-    // Room Booking: SWO does not use room booking, so no field here. The payload still sends
-    // "Room Booking": [] automatically (see ARRAY_KEYS). To enable it for a region, add:
-    //   { key:"Room Booking", label:"Room Booking", type:"multiselect", showIf:v=> v["Virtual Event"]!=="Yes", options:[...] },
-    { key:"Venue Name", label:"Venue Name", type:"text", showIf:v=> v["Virtual Event"]!=="Yes", half:true },
-    { key:"Venue Address", label:"Venue Address", type:"textarea", showIf:v=> v["Virtual Event"]!=="Yes" },
+    { key:"Virtual Event", label:"Will your event take place virtually?", type:"select", required:true,
+      options:["No","Yes"] },
+    { key:"Event Location", label:"Event Location", type:"select", required:true,
+      optionsBy:v=> locationsFor(v["Region"]),
+      showIf:v=> v["Virtual Event"]!=="Yes" },
+    { key:"Venue Name", label:"Venue Name", type:"text", required:true, half:true,
+      showIf:v=> v["Virtual Event"]!=="Yes" && v["Event Location"]==="Other" },
+    { key:"Venue Address", label:"Venue Address", type:"textarea", required:true,
+      showIf:v=> v["Virtual Event"]!=="Yes" && v["Event Location"]==="Other" },
     { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea" }
   ]},
-  { title: "🎯 Event Details", fields: [
+  { title:"🎯 Event Details", fields:[
     { key:"Responsible Board", label:"Responsible Board / Portfolio", type:"select", required:true, options:BOARDS },
-    { key:"Area of Focus", label:"Area of Focus", type:"select", options:[
-      "Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth","Other"] },
-    { key:"Objective", label:"Objective", type:"select", options:[
-      "Strengthen Ismaili identity (YSB) - Young Adult",
-      "Strengthen Ismaili identity (YSB) - Youth",
-      "Increase access to religious education for Adults 18+",
-      "Increase access to religious education for ages 4-18 (BUI, ERP)",
-      "Enhance the quality of religious education via teacher training and development",
-      "All Ismaili youth will have the skills to be leaders in their discipline, within and outside the Shia Imami Ismaili community",
-      "Support and contribute to the development of resilient youth",
-      "All Ismaili youth will have a strong sense of identity, be able to articulate the values of and be ambassadors of the Shia Imami Ismaili community",
-      "All Ismaili youth will feel a sense of belonging within the Shia Imami Ismaili community",
-      "The Canadian Jamat will be healthy and active through their participation in organized/life sports and physical activity",
-      "Expand and strengthen sustainable integrated coordinated programming",
-      "Parental engagement",
-      "Training and religious education to Jamati Leadership"] },
-    { key:"Target Segments", label:"Target Segments", type:"multiselect", options:[
-      "Early Childhood Development (ECD) (0-4 yrs)","Young (5-11 yrs)","Youth (12-17 yrs)","Post Secondary (18-25 yrs)","Young Adults (25-35 yrs)","Adults (35-54 yrs)","Seniors (55+ yrs)","All"] },
-    { key:"Audience", label:"Audience", type:"multiselect", options:[
-      "Jamat","Leadership","Ummah","External","Government","Other"] },
+    { key:"Area of Focus", label:"Area of Focus", type:"select", required:true,
+      optionsBy:v=> v["Responsible Board"]===B_ITREB ? AOF_ITREB : (v["Responsible Board"]===B_YSB ? AOF_YSB : AOF_OTHER),
+      showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
+    { key:"Objective", label:"Objective", type:"select", required:true, options:OBJECTIVES,
+      showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
+    { key:"Audience", label:"Audience", type:"multiselect", required:true, options:AUDIENCE },
+    // Target Segments only when Audience includes "Jamat":
+    { key:"Target Segments", label:"Target Segments", type:"multiselect", required:true, options:TARGET_SEGMENTS,
+      showIf:v=> Array.isArray(v["Audience"]) && v["Audience"].indexOf("Jamat")!==-1 },
     { key:"Collaborating Boards", label:"Collaborating Boards / Portfolios", type:"multiselect", options:BOARDS },
-    { key:"Services needed", label:"Services Needed", type:"multiselect", options:[
-      "Arts & Culture","Communications","Legal","Audio Visual","Transportation","Volunteer Management"] },
-    { key:"Expected Number of Attendees", label:"Expected Number of Attendees", type:"number" }
+    { key:"Services needed", label:"Services Needed", type:"multiselect", required:true, options:SERVICES },
+    { key:"Expected Number of Attendees", label:"Expected Number of Attendees", type:"select", required:true, options:ATTENDEES },
+    // ---- SWO-only fields (shown only when Region = Southwest Ontario) ----
+    { key:"Serving Refreshments", label:"Are you serving refreshments?", type:"select", required:true, options:["No","Yes"],
+      showIf:v=> v["Region"]===SWO },
+    { key:"Refreshment Details", label:"Refreshment Details", type:"textarea", required:true,
+      showIf:v=> v["Region"]===SWO && v["Serving Refreshments"]==="Yes" },
+    { key:"Ticketed Event", label:"Does your event have tickets?", type:"select", required:true, options:["No","Yes","Yes (Subsidized)"],
+      showIf:v=> v["Region"]===SWO },
+    { key:"Ticket Price", label:"Ticket Price", type:"text", required:true,
+      showIf:v=> v["Region"]===SWO && (v["Ticketed Event"]==="Yes" || v["Ticketed Event"]==="Yes (Subsidized)") },
+    { key:"Has Budget", label:"Do you have budget for the event?", type:"select", required:true, options:["No","Yes"],
+      showIf:v=> v["Region"]===SWO },
+    { key:"Cost Breakdown", label:"Please provide a cost breakdown for the event", type:"textarea", required:true,
+      showIf:v=> v["Region"]===SWO && v["Has Budget"]==="Yes" }
   ]},
-  { title: "👤 Contact Details", fields: [
+  { title:"👤 Contact Details", fields:[
     { key:"Name", label:"Your Name", type:"text", required:true, half:true },
-    { key:"Email Address", label:"Your Email", type:"email", required:true, half:true },
-    { key:"Phone Number", label:"Your Phone", type:"tel", half:true },
-    { key:"Event Leads", label:"Event Leads", type:"text", half:true },
-    { key:"Project Lead Name", label:"Project Lead Name", type:"text", half:true },
-    { key:"Project Lead Email", label:"Project Lead Email", type:"email", half:true },
-    { key:"Project Lead Phone", label:"Project Lead Phone", type:"tel", half:true },
-    { key:"Day of Event Lead Name", label:"Day-of Lead Name", type:"text", half:true },
-    { key:"Day of Event Lead Email", label:"Day-of Lead Email", type:"email", half:true },
-    { key:"Day of Event Lead Phone", label:"Day-of Lead Phone", type:"tel", half:true }
+    { key:"Email Address", label:"Your Email", type:"email", required:true, validate:"email", half:true },
+    { key:"Phone Number", label:"Your Phone", type:"tel", required:true, validate:"phone", half:true },
+    { key:"Event Leads", label:"Event Leads", type:"select", required:true, options:EVENT_LEADS },
+    // Project Lead: only when "Project Lead and Day Leads are someone else"
+    { key:"Project Lead Name", label:"Project Lead Name", type:"text", required:true, half:true,
+      showIf:v=> v["Event Leads"]===EL_DPD },
+    { key:"Project Lead Email", label:"Project Lead Email", type:"email", required:true, validate:"email", half:true,
+      showIf:v=> v["Event Leads"]===EL_DPD },
+    { key:"Project Lead Phone", label:"Project Lead Phone", type:"tel", validate:"phone", half:true,
+      showIf:v=> v["Event Leads"]===EL_DPD },
+    // Day-of Lead: when day lead is someone else (both "ddl" and "dpd")
+    { key:"Day of Event Lead Name", label:"Day-of Lead Name", type:"text", required:true, half:true,
+      showIf:v=> v["Event Leads"]===EL_DDL || v["Event Leads"]===EL_DPD },
+    { key:"Day of Event Lead Email", label:"Day-of Lead Email", type:"email", required:true, validate:"email", half:true,
+      showIf:v=> v["Event Leads"]===EL_DDL || v["Event Leads"]===EL_DPD },
+    { key:"Day of Event Lead Phone", label:"Day-of Lead Phone", type:"tel", validate:"phone", half:true,
+      showIf:v=> v["Event Leads"]===EL_DDL || v["Event Leads"]===EL_DPD }
   ]}
 ];
-// FormResponse keys that must always be arrays in the payload:
 const ARRAY_KEYS = ["Room Booking","Audience","Target Segments","Collaborating Boards","Services needed"];
 
 /* ============================================================================
-   3) ENGINE — no need to edit below to customize fields
+   4) ENGINE
    ============================================================================ */
 const q = new URLSearchParams(location.search);
 const EDIT_ID = q.get('eid') || q.get('eventid') || '';
 const PRESET_REGION = q.get('region') || q.get('r') || '';
 const form = document.getElementById('eventForm');
-const values = {};       // key -> current value (string or array)
-const fieldEls = {};     // key -> {wrap, input(s), def}
+const values = {};
+const fieldEls = {};
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function el(tag, attrs, html){ const e=document.createElement(tag); if(attrs) for(const k in attrs) e.setAttribute(k,attrs[k]); if(html!=null) e.innerHTML=html; return e; }
+const norm = o => (typeof o==='string' ? {label:o, value:o} : o);
+function buildTimeOptions(){ const out=[]; for(let h=0;h<24;h++){ for(let m=0;m<60;m+=TIME_STEP){ const ap=h>=12?'pm':'am'; let h12=h%12; if(h12===0)h12=12; out.push(h12+':'+String(m).padStart(2,'0')+' '+ap); } } return out; }
+const TIME_OPTIONS = buildTimeOptions();
+function validPhone(s){ const d=String(s||'').replace(/\D/g,''); return /^1?\d{10}$/.test(d); }
 
 function buildField(def){
   const wrap = el('div',{class:'field','data-key':def.key});
   const id = 'f_'+def.key.replace(/[^a-z0-9]/gi,'_');
   wrap.appendChild(el('label',{for:id}, def.label + (def.required?' <span class="req">*</span>':'')));
+  let rebuild = null;
 
-  const norm = o => (typeof o==='string' ? {label:o, value:o} : o);
-  if(def.type==='select'){
+  if(def.type==='select' || def.type==='time'){
     const s = el('select',{id});
-    s.appendChild(el('option',{value:''},'— Select —'));
-    (def.options||[]).map(norm).forEach(o=> s.appendChild(el('option',{value:o.value}, o.label)));
+    const getOpts = ()=> def.type==='time' ? TIME_OPTIONS : (def.optionsBy ? def.optionsBy(values) : (def.options||[]));
+    const fill = ()=>{
+      const cur = values[def.key]||'';
+      s.innerHTML=''; s.appendChild(el('option',{value:''},'— Select —'));
+      const list = getOpts().map(norm);
+      list.forEach(o=> s.appendChild(el('option',{value:o.value}, o.label)));
+      if(list.some(o=>o.value===cur)){ s.value=cur; } else { s.value=''; values[def.key]=''; }
+    };
+    fill();
     s.addEventListener('change',()=>{ values[def.key]=s.value; onChange(); });
+    if(def.optionsBy) rebuild = fill;
     wrap.appendChild(s);
   } else if(def.type==='multiselect'){
     values[def.key]=[];
@@ -226,7 +286,7 @@ function buildField(def){
       const cb = el('input',{type:'checkbox',value:o.value});
       cb.addEventListener('change',()=>{
         const arr = values[def.key];
-        if(cb.checked){ if(!arr.includes(o.value)) arr.push(o.value); lab.classList.add('sel'); }
+        if(cb.checked){ if(arr.indexOf(o.value)===-1) arr.push(o.value); lab.classList.add('sel'); }
         else { values[def.key]=arr.filter(x=>x!==o.value); lab.classList.remove('sel'); }
         onChange();
       });
@@ -240,12 +300,13 @@ function buildField(def){
     wrap.appendChild(t);
   } else {
     const inp = el('input',{id,type:def.type||'text'});
-    inp.addEventListener('input',()=>{ values[def.key]=inp.value; if(def.type==='time') onChange(); });
+    if(def.type==='number' && def.min!=null) inp.setAttribute('min', def.min);
+    inp.addEventListener('input',()=>{ values[def.key]=inp.value; });
     wrap.appendChild(inp);
   }
   wrap.appendChild(el('div',{class:'err'},'This field is required.'));
   if(def.help) wrap.appendChild(el('div',{class:'help'}, def.help));
-  fieldEls[def.key]={wrap, def};
+  fieldEls[def.key]={wrap, def, rebuild};
   return wrap;
 }
 
@@ -264,43 +325,37 @@ function renderForm(){
     form.appendChild(card);
   });
   const act = el('div',{class:'actions'});
-  const btn = el('button',{type:'submit',class:'btn btn-primary',id:'submitBtn'}, EDIT_ID?'Save Changes':'Submit Request');
-  act.appendChild(btn);
+  act.appendChild(el('button',{type:'submit',class:'btn btn-primary',id:'submitBtn'}, EDIT_ID?'Save Changes':'Submit Request'));
   act.appendChild(el('div',{class:'spin',id:'spin'}));
   form.appendChild(act);
 }
 
 function visible(def){
-  if(def.regions && !def.regions.includes(values["Region"])) return false;
+  if(def.regions && def.regions.indexOf(values["Region"])===-1) return false;
   if(def.showIf && !def.showIf(values)) return false;
   return true;
 }
 function onChange(){
-  for(const key in fieldEls){
-    const {wrap,def}=fieldEls[key];
-    wrap.hidden = !visible(def);
-  }
+  for(const key in fieldEls){ if(fieldEls[key].rebuild) fieldEls[key].rebuild(); }
+  for(const key in fieldEls){ fieldEls[key].wrap.hidden = !visible(fieldEls[key].def); }
 }
 
+function setErr(wrap, msg){ wrap.classList.add('invalid'); const e=wrap.querySelector('.err'); if(e&&msg) e.textContent=msg; }
 function validate(){
   let ok=true, first=null;
   for(const key in fieldEls){
     const {wrap,def}=fieldEls[key];
     wrap.classList.remove('invalid');
-    if(!def.required || wrap.hidden) continue;
+    if(wrap.hidden) continue;
     const v = values[key];
-    const empty = Array.isArray(v)? v.length===0 : !String(v||'').trim();
-    if(empty){ wrap.classList.add('invalid'); ok=false; if(!first) first=wrap; }
+    const empty = Array.isArray(v)? v.length===0 : !String(v==null?'':v).trim();
+    if(def.required && empty){ setErr(wrap,'This field is required.'); ok=false; first=first||wrap; continue; }
+    if(!empty && def.validate==='email' && !EMAIL_RE.test(String(v).trim())){ setErr(wrap,'Enter a valid email address.'); ok=false; first=first||wrap; continue; }
+    if(!empty && def.validate==='phone' && !validPhone(v)){ setErr(wrap,'Enter a valid North American phone number (10 digits).'); ok=false; first=first||wrap; continue; }
+    if(!empty && def.type==='number' && def.min!=null && Number(v)<def.min){ setErr(wrap,'Value must be at least '+def.min+'.'); ok=false; first=first||wrap; continue; }
   }
   if(first) first.scrollIntoView({behavior:'smooth',block:'center'});
   return ok;
-}
-
-function to12h(t){ // "23:00" -> "11:00 pm"
-  if(!t) return '';
-  const m = String(t).match(/^(\d{1,2}):(\d{2})/); if(!m) return t;
-  let h=+m[1]; const ap=h>=12?'pm':'am'; let h12=h%12; if(h12===0)h12=12;
-  return h12+':'+m[2]+' '+ap;
 }
 
 function buildPayload(){
@@ -309,16 +364,9 @@ function buildPayload(){
     const {wrap,def}=fieldEls[key];
     let v = values[key];
     if(wrap.hidden){ v = (def.type==='multiselect')? [] : ''; }
-    if(def.type==='multiselect'){
-      v = Array.isArray(v)? v : [];
-      fr[key] = def.join ? v.join(def.join) : v;
-    } else if(def.type==='time'){
-      fr[key] = to12h(v);
-    } else {
-      fr[key] = v==null? '' : String(v);
-    }
+    if(def.type==='multiselect'){ fr[key] = Array.isArray(v)? v : []; }
+    else { fr[key] = v==null? '' : String(v); }
   }
-  // guarantee array-typed keys are arrays (unless intentionally joined to a string)
   ARRAY_KEYS.forEach(k=>{ if(!(k in fr)) fr[k]=[]; });
   return { FormResponse: fr };
 }
@@ -326,27 +374,22 @@ function buildPayload(){
 async function submit(e){
   e.preventDefault();
   document.getElementById('errorBanner').classList.remove('show');
-  if(!validate()) return;
+  if(!validate()){ showError('Please fix the highlighted fields.'); return; }
   if(FLOW_URL.indexOf('http')!==0){ showError('Form endpoint not configured yet — set FLOW_URL in index.html.'); return; }
   const btn=document.getElementById('submitBtn'), spin=document.getElementById('spin');
   btn.disabled=true; spin.style.display='inline-block';
   try{
-    // No custom headers -> text/plain simple request -> no CORS preflight.
-    const r = await fetch(FLOW_URL, { method:'POST', body: JSON.stringify(buildPayload()) });
+    const r = await fetch(FLOW_URL, { method:'POST', body: JSON.stringify(buildPayload()) }); // text/plain => no CORS preflight
     const txt = await r.text();
     let data={}; try{ data=JSON.parse(txt); }catch(_){}
     if(!r.ok) throw new Error('HTTP '+r.status+' '+txt.slice(0,200));
     showSuccess(data);
-  }catch(err){
-    showError('Could not submit: '+err.message);
-    btn.disabled=false; spin.style.display='none';
-  }
+  }catch(err){ showError('Could not submit: '+err.message); btn.disabled=false; spin.style.display='none'; }
 }
 
 function showError(msg){ const b=document.getElementById('errorBanner'); b.textContent=msg; b.classList.add('show'); window.scrollTo({top:0,behavior:'smooth'}); }
 function showSuccess(data){
   form.style.display='none';
-  document.getElementById('errorBanner').classList.remove('show');
   const sp=document.getElementById('successPanel'); sp.style.display='block';
   document.getElementById('successMsg').textContent = data.eventId ? ('Your request has been received (Event #'+data.eventId+') and is now in the approval workflow.') : 'Your request has been received and is now in the approval workflow.';
   const link=document.getElementById('dashLink');
@@ -357,7 +400,7 @@ function showSuccess(data){
 renderForm();
 if(EDIT_ID){ document.getElementById('formTitle').textContent='Edit Event Request';
   document.getElementById('formSub').textContent='Editing event #'+EDIT_ID+'. Material changes (date, time, location, etc.) will re-enter approval.'; }
-if(PRESET_REGION){ values["Region"]=PRESET_REGION; const sel=document.querySelector('#f_Region'); if(sel) sel.value=PRESET_REGION; }
+if(PRESET_REGION){ values["Region"]=PRESET_REGION; const sel=document.getElementById('f_Region'); if(sel) sel.value=PRESET_REGION; }
 onChange();
 form.addEventListener('submit', submit);
 </script>
