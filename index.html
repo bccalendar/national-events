@@ -102,6 +102,19 @@ const REGIONS = [
   { label: "Prairies", value: "Prairies" }
 ];
 
+// Shared board/portfolio list (used for Responsible Board and Collaborating Boards)
+const BOARDS = [
+  "Arts & Culture","ACCESS","Care for the Elderly (CFTE)","Communications & Publications","Community Assets",
+  "Community Services (Rites of Passage)","Conciliation & Arbitration Board (CAB)","Council for the Prairies",
+  "Data Management & Technology","Aga Khan Economic Planning Board (EPB)","Aga Khan Education Board","External Relations",
+  "Financial Resource Development","Future Ready Initiative","Grants & Review Board (GRB)","Aga Khan Health Board",
+  "Institutional Delivery Excellence","Ismaili Tariqah & Religious Education Board (ITREB)","Jamati MKMKs","Legal Matters",
+  "Property Matters","Settlement","Aga Khan Social Welfare Board (SWB)","Volunteer Management",
+  "Aga Khan Youth & Sports Board (YSB)","Equity Diversity Inclusion & Belonging","Aga Khan Development Network (AKDN)",
+  "Aga Khan Foundation Canada (AKFC)","Aga Khan Museum (AKM)","Focus Canada","Global Encounters",
+  "Global Centre for Pluralism (GCP)","World Partnership Golf","World Partnership Walk","Council for Canada"
+];
+
 const SECTIONS = [
   { title: "📅 Calendar Details", fields: [
     { key:"Region", label:"Region", type:"select", required:true, options:REGIONS },
@@ -118,31 +131,46 @@ const SECTIONS = [
       showIf:v=> v["Recurring Event"] && v["Recurring Event"]!=="None" },
     { key:"Virtual Event", label:"Will your event take place virtually?", type:"select",
       options:[{label:"No",value:"No"},{label:"Yes",value:"Yes"}] },
-    { key:"Event Location", label:"Event Location", type:"multiselect", join:" - ",
+    // Event Location: SWO location list is not in the solution, so this is free-text.
+    // To make it a dropdown, change type to "multiselect" (add join:" - ") and add an options:[...] array.
+    { key:"Event Location", label:"Event Location", type:"text",
       showIf:v=> v["Virtual Event"]!=="Yes",
-      help:"Select one or more locations.",
-      // CUSTOMIZE these options per your regions/jamatkhanas:
-      options:[{label:"Brantford",value:"Brantford"},{label:"Brampton",value:"Brampton"},{label:"Downtown",value:"Downtown"},{label:"Headquarters",value:"Headquarters"}] },
+      help:"Enter the jamatkhana / location for this event." },
+    // Room Booking must stay a multiselect (the flow expects an array). Replace with SWO's real rooms,
+    // or delete this whole field if SWO doesn't use room booking.
     { key:"Room Booking", label:"Room Booking", type:"multiselect",
       showIf:v=> v["Virtual Event"]!=="Yes",
-      // CUSTOMIZE these rooms:
-      options:[{label:"Prayer Hall",value:"Prayer Hall"},{label:"Social Hall",value:"Social Hall"},{label:"Multipurpose Room",value:"Multipurpose Room"},{label:"Classroom",value:"Classroom"}] },
+      help:"Replace these placeholders with SWO's actual rooms (or remove this field).",
+      options:["Prayer Hall","Social Hall","Multipurpose Room","Classroom"] },
     { key:"Venue Name", label:"Venue Name", type:"text", showIf:v=> v["Virtual Event"]!=="Yes", half:true },
     { key:"Venue Address", label:"Venue Address", type:"textarea", showIf:v=> v["Virtual Event"]!=="Yes" },
     { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea" }
   ]},
   { title: "🎯 Event Details", fields: [
-    { key:"Responsible Board", label:"Responsible Board / Portfolio", type:"text", required:true },
-    { key:"Area of Focus", label:"Area of Focus", type:"text" },
-    { key:"Objective", label:"Objective", type:"textarea" },
-    { key:"Target Segments", label:"Target Segments", type:"multiselect",
-      options:[{label:"Early Days",value:"Early Days"},{label:"Youth 1",value:"Youth 1"},{label:"Seniors",value:"Seniors"}] },
-    { key:"Audience", label:"Audience", type:"multiselect",
-      options:[{label:"Jamat",value:"Jamat"},{label:"Leadership",value:"Leadership"},{label:"Uniformed Members",value:"Uniformed Members"},{label:"External",value:"External"},{label:"Government",value:"Government"},{label:"Other",value:"Other"}] },
-    { key:"Collaborating Boards", label:"Collaborating Boards / Portfolios", type:"multiselect",
-      options:[{label:"Aga Khan Museum",value:"Aga Khan Museum"},{label:"Sports Board",value:"Sports Board"},{label:"Youth & Sports Board",value:"Youth & Sports Board"},{label:"Arts & Culture",value:"Arts & Culture"},{label:"CEC",value:"CEC"}] },
-    { key:"Services needed", label:"Services Needed", type:"multiselect",
-      options:[{label:"Communications",value:"Communications"},{label:"Legal",value:"Legal"},{label:"Audio Visual",value:"Audio Visual"},{label:"Transportation",value:"Transportation"},{label:"Volunteers",value:"Volunteers"}] },
+    { key:"Responsible Board", label:"Responsible Board / Portfolio", type:"select", required:true, options:BOARDS },
+    { key:"Area of Focus", label:"Area of Focus", type:"select", options:[
+      "Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth","Other"] },
+    { key:"Objective", label:"Objective", type:"select", options:[
+      "Strengthen Ismaili identity (YSB) - Young Adult",
+      "Strengthen Ismaili identity (YSB) - Youth",
+      "Increase access to religious education for Adults 18+",
+      "Increase access to religious education for ages 4-18 (BUI, ERP)",
+      "Enhance the quality of religious education via teacher training and development",
+      "All Ismaili youth will have the skills to be leaders in their discipline, within and outside the Shia Imami Ismaili community",
+      "Support and contribute to the development of resilient youth",
+      "All Ismaili youth will have a strong sense of identity, be able to articulate the values of and be ambassadors of the Shia Imami Ismaili community",
+      "All Ismaili youth will feel a sense of belonging within the Shia Imami Ismaili community",
+      "The Canadian Jamat will be healthy and active through their participation in organized/life sports and physical activity",
+      "Expand and strengthen sustainable integrated coordinated programming",
+      "Parental engagement",
+      "Training and religious education to Jamati Leadership"] },
+    { key:"Target Segments", label:"Target Segments", type:"multiselect", options:[
+      "Early Childhood Development (ECD) (0-4 yrs)","Young (5-11 yrs)","Youth (12-17 yrs)","Post Secondary (18-25 yrs)","Young Adults (25-35 yrs)","Adults (35-54 yrs)","Seniors (55+ yrs)","All"] },
+    { key:"Audience", label:"Audience", type:"multiselect", options:[
+      "Jamat","Leadership","Ummah","External","Government","Other"] },
+    { key:"Collaborating Boards", label:"Collaborating Boards / Portfolios", type:"multiselect", options:BOARDS },
+    { key:"Services needed", label:"Services Needed", type:"multiselect", options:[
+      "Arts & Culture","Communications","Legal","Audio Visual","Transportation","Volunteer Management"] },
     { key:"Expected Number of Attendees", label:"Expected Number of Attendees", type:"number" }
   ]},
   { title: "👤 Contact Details", fields: [
@@ -178,16 +206,17 @@ function buildField(def){
   const id = 'f_'+def.key.replace(/[^a-z0-9]/gi,'_');
   wrap.appendChild(el('label',{for:id}, def.label + (def.required?' <span class="req">*</span>':'')));
 
+  const norm = o => (typeof o==='string' ? {label:o, value:o} : o);
   if(def.type==='select'){
     const s = el('select',{id});
     s.appendChild(el('option',{value:''},'— Select —'));
-    (def.options||[]).forEach(o=> s.appendChild(el('option',{value:o.value}, o.label)));
+    (def.options||[]).map(norm).forEach(o=> s.appendChild(el('option',{value:o.value}, o.label)));
     s.addEventListener('change',()=>{ values[def.key]=s.value; onChange(); });
     wrap.appendChild(s);
   } else if(def.type==='multiselect'){
     values[def.key]=[];
     const box = el('div',{class:'checks'});
-    (def.options||[]).forEach(o=>{
+    (def.options||[]).map(norm).forEach(o=>{
       const lab = el('label',{class:'chk'});
       const cb = el('input',{type:'checkbox',value:o.value});
       cb.addEventListener('change',()=>{
