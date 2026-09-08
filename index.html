@@ -46,6 +46,12 @@
   .draft-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:color-mix(in srgb,var(--info),transparent 90%);border:1px solid var(--info);border-left:4px solid var(--info);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px}
   .draft-bar .btn{padding:8px 16px;margin:0}
   .banner.ok{background:color-mix(in srgb,var(--ok),transparent 88%) !important;color:var(--ok) !important;border:1px solid var(--ok) !important}
+  .test-bar{position:fixed;left:0;right:0;bottom:0;z-index:2000;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;background:#1f2937;border-top:3px solid var(--info);box-shadow:0 -2px 10px rgba(0,0,0,.25)}
+  .test-tag{color:#fff;font-weight:800;font-size:12px;letter-spacing:.5px;margin-right:4px}
+  .test-btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  .test-btn:hover{background:rgba(255,255,255,.18)}
+  .test-btn.on{background:var(--info);border-color:var(--info)}
+  .test-btn.off{margin-left:auto;background:transparent;border-color:rgba(255,255,255,.35)}
   @media(max-width:520px){
     .top-bar{gap:10px 12px;padding:12px 16px}
     .top-bar img{width:110px}
@@ -359,7 +365,9 @@ const q = new URLSearchParams(location.search);
 const EDIT_ID = q.get('eid') || q.get('eventid') || '';
 const COPY_ID = q.get('copyfrom') || q.get('copy') || '';   // duplicate an existing event as a NEW request
 const PRESET_REGION = q.get('region') || q.get('r') || '';
-const TEST_MODE = q.get('test')==='1' || q.get('test')==='true';
+const TEST_PARAM = (q.get('test')||'').toLowerCase();
+const TEST_MODE = TEST_PARAM!=='';
+const TEST_SCENARIO = (TEST_PARAM==='1'||TEST_PARAM==='true') ? 'basic' : TEST_PARAM;
 const form = document.getElementById('eventForm');
 const values = {};
 const fieldEls = {};
@@ -726,31 +734,88 @@ function offerDraftRestore(){
   form.parentNode.insertBefore(bar, form);
 }
 
-// ---- Test autofill (?test=1) ----
-function fillTestData(){
-  const region = PRESET_REGION || 'Southwest Ontario';
+// ---- Test autofill with scenarios (?test=<scenario>) ----
+const TEST_BASE = {
+  "Event Type":"New Event",
+  "Event Description":"This is a test event created via autofill.",
+  "Start Time":"9:00 am","End Time":"5:00 pm",
+  "Recurring Event":"None","Virtual Event":"No",
+  "Notes on Conflicts":"",
+  "Responsible Board":"Arts & Culture","Area of Focus":"Adult Education","Objective":OBJECTIVES[0],
+  "Audience":["Jamat"],"Target Segments":["All"],"Services needed":["Communications"],
+  "Collaborating Boards":["Communications & Publications"],
+  "Expected Number of Attendees":"51 - 100",
+  "Serving Refreshments":"No","Ticketed Event":"No","Has Budget":"No",
+  "Name":"Test User","Email Address":"test@example.com","Phone Number":"2365551234",
+  "Event Leads":"Requester is the Project Lead and Day Lead"
+};
+const TEST_SCENARIOS = {
+  basic:     { _label:"Basic" },
+  recurring: { _label:"Recurring", "Recurring Event":"Weekly", "Number Of Repeat Occurrences":"4" },
+  virtual:   { _label:"Virtual", "Virtual Event":"Yes" },
+  venue:     { _label:"Venue = Other", _locOther:true, "Venue Name":"Test Venue", "Venue Address":"123 Test Street, Testville" },
+  swo:       { _label:"SWO full", _region:"Southwest Ontario",
+               "Serving Refreshments":"Yes","Refreshment Details":"Tea, coffee and light snacks",
+               "Ticketed Event":"Yes","Ticket Price":"$10",
+               "Has Budget":"Yes","Cost Breakdown":"Venue $500; AV $200; Catering $300",
+               "Services needed":["Communications","Audio Visual","Volunteer Management"] },
+  leads:     { _label:"Separate leads", "Event Leads":"Project Lead and Day Leads are someone else",
+               "Project Lead Name":"Project Lead","Project Lead Email":"plead@example.com","Project Lead Phone":"2365550001",
+               "Day of Event Lead Name":"Day Lead","Day of Event Lead Email":"dlead@example.com","Day of Event Lead Phone":"2365550002" },
+  special:   { _label:"Special chars", _title:'TEST "Quotes" & <Tags> \'apostrophe\'' },
+  random:    { _label:"Random", _random:true }
+};
+function _futureDate(days){ return new Date(Date.now()+days*864e5).toISOString().slice(0,10); }
+function _rnd(a){ return a[Math.floor(Math.random()*a.length)]; }
+function _uniqTag(){ return new Date().toISOString().slice(5,16).replace('T',' '); } // MM-DD HH:MM
+function applyScenario(name){
+  const sc = TEST_SCENARIOS[name] || TEST_SCENARIOS.basic;
+  const region = sc._region || PRESET_REGION || 'Southwest Ontario';
+  const map = Object.assign({}, TEST_BASE, sc);
+  if(sc._random){
+    map["Recurring Event"]=_rnd(["None","Weekly","Monthly"]);
+    if(map["Recurring Event"]!=="None") map["Number Of Repeat Occurrences"]=String(2+Math.floor(Math.random()*5));
+    map["Virtual Event"]=_rnd(["No","Yes"]);
+    map["Audience"]=[_rnd(AUDIENCE)];
+    map["Expected Number of Attendees"]=_rnd(ATTENDEES);
+    map["Responsible Board"]=_rnd(BOARDS.filter(b=>BOARDS_NO_AOF.indexOf(b)===-1));
+    let svc=SERVICES.filter(()=>Math.random()<0.5).map(s=>s.value); if(!svc.length) svc=["Communications"];
+    map["Services needed"]=svc;
+  }
+  const S=(k,v)=>{ if(fieldEls[k] && v!=null) setField(k,v); };
   setField("Region", region); onChange();
-  const d=new Date(Date.now()+14*864e5); const iso=d.toISOString().slice(0,10);
-  const S=(k,v)=>{ if(fieldEls[k]) setField(k,v); };
-  S("Event Title","TEST - Sample Event (autofill)");
-  S("Event Type","New Event");
-  S("Event Description","This is a test event created via autofill.");
-  S("Event Start Date",iso);
-  S("Start Time","9:00 am"); S("End Time","5:00 pm");
-  S("Recurring Event","None"); S("Virtual Event","No");
+  S("Event Title", (sc._title || ("TEST ["+(sc._label||name)+"]")) + " — " + _uniqTag());
+  ["Event Type","Event Description","Start Time","End Time","Recurring Event"].forEach(k=>S(k,map[k]));
+  S("Event Start Date", _futureDate(14));
   onChange();
-  const locs=locationsFor(region); S("Event Location",[locs[0]]);
-  S("Responsible Board","Arts & Culture"); onChange();
-  S("Area of Focus","Adult Education"); S("Objective",OBJECTIVES[0]);
-  S("Audience",["Jamat"]); onChange();
-  S("Target Segments",["All"]);
-  S("Collaborating Boards",["Communications & Publications"]);
-  S("Services needed",["Communications"]);
-  S("Expected Number of Attendees","51 - 100");
-  S("Serving Refreshments","No"); S("Ticketed Event","No"); S("Has Budget","No");
-  S("Name","Test User"); S("Email Address","test@example.com"); S("Phone Number","2365551234");
-  S("Event Leads","Requester is the Project Lead and Day Lead");
+  ["Number Of Repeat Occurrences","Virtual Event"].forEach(k=>S(k,map[k]));
   onChange();
+  if(map["Virtual Event"]!=="Yes"){ let loc=map["Event Location"]; if(!loc){ const opts=locationsFor(region); loc = sc._locOther?[opts[0],"Other"]:[opts[0]]; } S("Event Location", loc); }
+  onChange();
+  ["Venue Name","Venue Address","Notes on Conflicts","Responsible Board"].forEach(k=>S(k,map[k]));
+  onChange();
+  ["Area of Focus","Objective","Audience"].forEach(k=>S(k,map[k]));
+  onChange();
+  ["Target Segments","Collaborating Boards","Services needed","Expected Number of Attendees","Serving Refreshments","Ticketed Event","Has Budget"].forEach(k=>S(k,map[k]));
+  onChange();
+  ["Refreshment Details","Ticket Price","Cost Breakdown","Name","Email Address","Phone Number","Event Leads"].forEach(k=>S(k,map[k]));
+  onChange();
+  ["Project Lead Name","Project Lead Email","Project Lead Phone","Day of Event Lead Name","Day of Event Lead Email","Day of Event Lead Phone"].forEach(k=>S(k,map[k]));
+  onChange();
+}
+function renderTestBar(current){
+  const bar=el('div',{class:'test-bar'});
+  bar.appendChild(el('span',{class:'test-tag'},'🧪 TEST'));
+  Object.keys(TEST_SCENARIOS).forEach(nm=>{
+    const btn=el('button',{type:'button',class:'test-btn'+(nm===current?' on':'')}, TEST_SCENARIOS[nm]._label||nm);
+    btn.addEventListener('click',()=>{ const r=values["Region"]||PRESET_REGION||''; const u=new URLSearchParams(); u.set('test',nm); if(r)u.set('region',r); u.set('n',Date.now()); location.search='?'+u.toString(); });
+    bar.appendChild(btn);
+  });
+  const off=el('button',{type:'button',class:'test-btn off'},'✕ Exit');
+  off.addEventListener('click',()=>{ location.href=location.pathname; });
+  bar.appendChild(off);
+  document.body.appendChild(bar);
+  document.body.style.paddingBottom='70px';
 }
 
 renderForm();
@@ -763,8 +828,9 @@ onChange();
 form.addEventListener('submit', submit);
 if(EDIT_ID) prefillFromDashboard(EDIT_ID,false);
 else if(COPY_ID) prefillFromDashboard(COPY_ID,true);
-else if(TEST_MODE) fillTestData();
+else if(TEST_MODE) applyScenario(TEST_SCENARIO);
 else offerDraftRestore();
+if(TEST_MODE) renderTestBar(TEST_SCENARIO);
 </script>
 </body>
 </html>
