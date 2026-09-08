@@ -741,12 +741,12 @@ const TEST_BASE = {
   "Start Time":"9:00 am","End Time":"5:00 pm",
   "Recurring Event":"None","Virtual Event":"No",
   "Notes on Conflicts":"",
-  "Responsible Board":"Arts & Culture","Area of Focus":"Adult Education","Objective":OBJECTIVES[0],
+  "Responsible Board":"ACCESS",
   "Audience":["Jamat"],"Target Segments":["All"],"Services needed":["Communications"],
   "Collaborating Boards":["Communications & Publications"],
   "Expected Number of Attendees":"51 - 100",
   "Serving Refreshments":"No","Ticketed Event":"No","Has Budget":"No",
-  "Name":"Test User","Email Address":"test@example.com","Phone Number":"2365551234",
+  "Name":"Test User","Email Address":"nurrali786@gmail.com","Phone Number":"2365551234",
   "Event Leads":"Requester is the Project Lead and Day Lead"
 };
 const TEST_SCENARIOS = {
@@ -778,7 +778,6 @@ function applyScenario(name){
     map["Virtual Event"]=_rnd(["No","Yes"]);
     map["Audience"]=[_rnd(AUDIENCE)];
     map["Expected Number of Attendees"]=_rnd(ATTENDEES);
-    map["Responsible Board"]=_rnd(BOARDS.filter(b=>BOARDS_NO_AOF.indexOf(b)===-1));
     let svc=SERVICES.filter(()=>Math.random()<0.5).map(s=>s.value); if(!svc.length) svc=["Communications"];
     map["Services needed"]=svc;
   }
