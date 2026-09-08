@@ -38,7 +38,14 @@
   .top-region .field>label{display:none}
   .top-region .field .help{display:none}
   .pair{display:grid;grid-template-columns:1fr 1fr;column-gap:24px}
-  @media(max-width:640px){.pair{grid-template-columns:1fr}}
+  .frow{display:grid;column-gap:24px}
+  @media(max-width:640px){.pair{grid-template-columns:1fr}.frow{grid-template-columns:1fr !important}}
+  .ficon{font-size:13px;filter:drop-shadow(1px 1px 1px rgba(0,0,0,.12))}
+  .btn-draft{background:color-mix(in srgb,#8a8f98,transparent calc(100% - var(--glass-bg-opacity) * 100%));color:#fff}
+  .btn-muted{background:color-mix(in srgb,#8a8f98,transparent 25%);color:#fff}
+  .draft-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:color-mix(in srgb,var(--info),transparent 90%);border:1px solid var(--info);border-left:4px solid var(--info);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px}
+  .draft-bar .btn{padding:8px 16px;margin:0}
+  .banner.ok{background:color-mix(in srgb,var(--ok),transparent 88%) !important;color:var(--ok) !important;border:1px solid var(--ok) !important}
   @media(max-width:520px){
     .top-bar{gap:10px 12px;padding:12px 16px}
     .top-bar img{width:110px}
@@ -350,10 +357,32 @@ const ARRAY_KEYS = ["Room Booking","Audience","Target Segments","Collaborating B
    ============================================================================ */
 const q = new URLSearchParams(location.search);
 const EDIT_ID = q.get('eid') || q.get('eventid') || '';
+const COPY_ID = q.get('copyfrom') || q.get('copy') || '';   // duplicate an existing event as a NEW request
 const PRESET_REGION = q.get('region') || q.get('r') || '';
+const TEST_MODE = q.get('test')==='1' || q.get('test')==='true';
 const form = document.getElementById('eventForm');
 const values = {};
 const fieldEls = {};
+// Emoji icon shown before each field label (by field key)
+const FIELD_ICONS = {
+  "Event Title":"📝","Event Type":"🏷️","Event Description":"🗒️","Event Start Date":"📅",
+  "Start Time":"🕐","End Time":"🕔","Recurring Event":"🔁","Number Of Repeat Occurrences":"🔢",
+  "Virtual Event":"💻","Event Location":"📍","Venue Name":"🏛️","Venue Address":"🗺️","Notes on Conflicts":"⚠️",
+  "Responsible Board":"💼","Area of Focus":"🔭","Objective":"💡","Audience":"👥","Target Segments":"🎯",
+  "Collaborating Boards":"🤝","Services needed":"🛠️","Expected Number of Attendees":"🧮",
+  "Serving Refreshments":"🍽️","Refreshment Details":"🍴","Ticketed Event":"🎟️","Ticket Price":"💲",
+  "Has Budget":"💰","Cost Breakdown":"🧾","Name":"👤","Email Address":"✉️","Phone Number":"📞",
+  "Event Leads":"📢","Project Lead Name":"⭐","Project Lead Email":"✉️","Project Lead Phone":"📞",
+  "Day of Event Lead Name":"🏃","Day of Event Lead Email":"✉️","Day of Event Lead Phone":"📞"
+};
+// Fields grouped onto one multi-column row (consecutive same group = one row)
+const FIELD_GROUP = {
+  "Event Start Date":"dt","Start Time":"dt","End Time":"dt",
+  "Name":"contact","Email Address":"contact","Phone Number":"contact",
+  "Project Lead Name":"plead","Project Lead Email":"plead","Project Lead Phone":"plead",
+  "Day of Event Lead Name":"dlead","Day of Event Lead Email":"dlead","Day of Event Lead Phone":"dlead"
+};
+const DRAFT_KEY = 'nerf_draft_v1';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function el(tag, attrs, html){ const e=document.createElement(tag); if(attrs) for(const k in attrs) e.setAttribute(k,attrs[k]); if(html!=null) e.innerHTML=html; return e; }
@@ -385,7 +414,8 @@ function validPhone(s){ const d=String(s||'').replace(/\D/g,''); return /^1?\d{1
 function buildField(def){
   const wrap = el('div',{class:'field','data-key':def.key});
   const id = 'f_'+def.key.replace(/[^a-z0-9]/gi,'_');
-  wrap.appendChild(el('label',{for:id}, def.label + (def.required?' <span class="req">*</span>':'')));
+  const ic = def.icon || FIELD_ICONS[def.key] || '';
+  wrap.appendChild(el('label',{for:id}, (ic?'<span class="ficon">'+ic+'</span> ':'') + def.label + (def.required?' <span class="req">*</span>':'')));
   let rebuild = null, setFn = null;
 
   if(def.type==='select' || def.type==='time'){
@@ -510,19 +540,34 @@ function renderForm(){
     const container = el('div',{class:'fields'});
     let buf=[];
     const flushPair=()=>{ if(buf.length){ const pr=el('div',{class:'pair'}); buf.forEach(w=>pr.appendChild(w)); container.appendChild(pr); buf=[]; } };
-    sec.fields.forEach(def=>{
+    const grpOf = d => d.group || FIELD_GROUP[d.key];
+    let i=0;
+    while(i<sec.fields.length){
+      const def=sec.fields[i];
       // Region lives in the sticky header, not in a section
       if(def.key==='Region'){
         const slot=document.getElementById('regionSlot');
         slot.appendChild(el('span',{class:'rlabel'},'Region'));
         const rw=buildField(def); rw.classList.add('region-field'); slot.appendChild(rw);
-        return;
+        i++; continue;
+      }
+      const grp = grpOf(def);
+      if(grp){
+        flushPair();
+        const gfields=[];
+        while(i<sec.fields.length && grpOf(sec.fields[i])===grp){ gfields.push(sec.fields[i]); i++; }
+        const rowc=el('div',{class:'frow'});
+        rowc.style.gridTemplateColumns='repeat('+gfields.length+',minmax(0,1fr))';
+        gfields.forEach(fd=> rowc.appendChild(buildField(fd)));
+        container.appendChild(rowc);
+        continue;
       }
       const w = buildField(def);
       const isFull = def.type==='textarea' || def.full;
       if(isFull){ flushPair(); w.classList.add('full-block'); container.appendChild(w); }
       else { buf.push(w); if(buf.length===2) flushPair(); }
-    });
+      i++;
+    }
     flushPair();
     content.appendChild(container);
     card.appendChild(content);
@@ -530,6 +575,7 @@ function renderForm(){
   });
   const act = el('div',{class:'actions'});
   act.appendChild(el('button',{type:'submit',class:'btn btn-primary',id:'submitBtn'}, EDIT_ID?'Save Changes':'Submit Request'));
+  if(!EDIT_ID){ const db=el('button',{type:'button',class:'btn btn-draft',id:'draftBtn'},'💾 Save Draft'); db.addEventListener('click',saveDraft); act.appendChild(db); }
   act.appendChild(el('div',{class:'spin',id:'spin'}));
   form.appendChild(act);
 }
@@ -548,7 +594,7 @@ function onChange(){
   for(const key in fieldEls){ if(fieldEls[key].rebuild) fieldEls[key].rebuild(); }
   for(const key in fieldEls){ fieldEls[key].wrap.hidden = !visible(fieldEls[key].def); }
   // collapse pair rows where both fields are hidden (avoids empty gaps)
-  document.querySelectorAll('.pair').forEach(pr=>{
+  document.querySelectorAll('.pair,.frow').forEach(pr=>{
     pr.hidden = Array.prototype.every.call(pr.children, c=>c.hidden);
   });
   updateRegionIntro();
@@ -603,6 +649,7 @@ async function submit(e){
 
 function showError(msg){ const b=document.getElementById('errorBanner'); b.textContent=msg; b.classList.add('show'); window.scrollTo({top:0,behavior:'smooth'}); }
 function showSuccess(data){
+  clearDraft();
   form.style.display='none';
   const sp=document.getElementById('successPanel'); sp.style.display='block';
   document.getElementById('successMsg').textContent = data.eventId ? ('Your request has been received (Event #'+data.eventId+') and is now in the approval workflow.') : 'Your request has been received and is now in the approval workflow.';
@@ -635,12 +682,13 @@ const PREFILL_MAP = {
   "Has Budget":{k:"Has Budget"}, "Cost Breakdown":{k:"Cost Breakdown",dec:1}
 };
 function setField(k,val){ const fe=fieldEls[k]; if(fe && fe.set) fe.set(val); }
-async function prefillFromDashboard(){
-  if(DASHBOARD_URL.indexOf('http')!==0){ showError('Cannot load event for editing — DASHBOARD_URL is not set in the form.'); return; }
-  const btn=document.getElementById('submitBtn'); if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+async function prefillFromDashboard(id, isCopy){
+  if(DASHBOARD_URL.indexOf('http')!==0){ showError('Cannot load event — DASHBOARD_URL is not set in the form.'); return; }
+  const btn=document.getElementById('submitBtn'); const defLbl = isCopy?'Submit Request':'Save Changes';
+  if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
   try{
     const sep=DASHBOARD_URL.indexOf('?')>-1?'&':'?';
-    const url=DASHBOARD_URL+sep+'eventid='+encodeURIComponent(EDIT_ID)+'&region='+encodeURIComponent(PRESET_REGION);
+    const url=DASHBOARD_URL+sep+'eventid='+encodeURIComponent(id)+'&region='+encodeURIComponent(PRESET_REGION);
     const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status);
     const data=await r.json(); const ev=data.eventData||{};
     if(PRESET_REGION) setField("Region", PRESET_REGION);
@@ -652,17 +700,71 @@ async function prefillFromDashboard(){
       setField(m.k, val);
     }
     onChange();
-    if(btn){ btn.disabled=false; btn.textContent='Save Changes'; }
-  }catch(e){ showError('Could not load event #'+EDIT_ID+' for editing: '+e.message); if(btn){ btn.disabled=false; btn.textContent='Save Changes'; } }
+    if(btn){ btn.disabled=false; btn.textContent=defLbl; }
+  }catch(e){ showError('Could not load event #'+id+': '+e.message); if(btn){ btn.disabled=false; btn.textContent=defLbl; } }
+}
+
+// ---- Save as draft (this browser only) ----
+function saveDraft(){
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify({region:values["Region"]||PRESET_REGION, values:values, ts:Date.now()})); flashDraft('💾 Draft saved on this device.'); }
+  catch(e){ flashDraft('Could not save draft on this device.'); }
+}
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+function flashDraft(msg){ const b=document.getElementById('errorBanner'); b.textContent=msg; b.classList.add('show'); b.classList.add('ok'); setTimeout(()=>{ b.classList.remove('show'); b.classList.remove('ok'); },2600); }
+function applyValues(saved){ if(!saved) return; if(saved.region) setField("Region", saved.region); const v=saved.values||{}; for(const k in v){ if(fieldEls[k]) setField(k, v[k]); } onChange(); }
+function offerDraftRestore(){
+  let saved=null; try{ saved=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null'); }catch(e){}
+  if(!saved) return;
+  const when = saved.ts? new Date(saved.ts).toLocaleString() : '';
+  const bar = el('div',{class:'draft-bar'});
+  bar.appendChild(el('span',null,'💾 You have a saved draft'+(when?(' from '+when):'')+'.'));
+  const yes=el('button',{type:'button',class:'btn btn-primary'},'Restore');
+  const no=el('button',{type:'button',class:'btn btn-muted'},'Discard');
+  yes.addEventListener('click',()=>{ applyValues(saved); bar.remove(); });
+  no.addEventListener('click',()=>{ clearDraft(); bar.remove(); });
+  bar.appendChild(yes); bar.appendChild(no);
+  form.parentNode.insertBefore(bar, form);
+}
+
+// ---- Test autofill (?test=1) ----
+function fillTestData(){
+  const region = PRESET_REGION || 'Southwest Ontario';
+  setField("Region", region); onChange();
+  const d=new Date(Date.now()+14*864e5); const iso=d.toISOString().slice(0,10);
+  const S=(k,v)=>{ if(fieldEls[k]) setField(k,v); };
+  S("Event Title","TEST - Sample Event (autofill)");
+  S("Event Type","New Event");
+  S("Event Description","This is a test event created via autofill.");
+  S("Event Start Date",iso);
+  S("Start Time","9:00 am"); S("End Time","5:00 pm");
+  S("Recurring Event","None"); S("Virtual Event","No");
+  onChange();
+  const locs=locationsFor(region); S("Event Location",[locs[0]]);
+  S("Responsible Board","Arts & Culture"); onChange();
+  S("Area of Focus","Adult Education"); S("Objective",OBJECTIVES[0]);
+  S("Audience",["Jamat"]); onChange();
+  S("Target Segments",["All"]);
+  S("Collaborating Boards",["Communications & Publications"]);
+  S("Services needed",["Communications"]);
+  S("Expected Number of Attendees","51 - 100");
+  S("Serving Refreshments","No"); S("Ticketed Event","No"); S("Has Budget","No");
+  S("Name","Test User"); S("Email Address","test@example.com"); S("Phone Number","2365551234");
+  S("Event Leads","Requester is the Project Lead and Day Lead");
+  onChange();
 }
 
 renderForm();
 if(EDIT_ID){ document.getElementById('formTitle').textContent='Edit Event Request';
   document.getElementById('formSub').textContent='Editing event #'+EDIT_ID+'. Material changes (date, time, location, etc.) will re-enter approval.'; }
+else if(COPY_ID){ document.getElementById('formTitle').textContent='New Request (from #'+COPY_ID+')';
+  document.getElementById('formSub').textContent='Duplicating event #'+COPY_ID+' as a NEW request — update the date/details as needed, then submit.'; }
 if(PRESET_REGION){ setField("Region", PRESET_REGION); }
 onChange();
 form.addEventListener('submit', submit);
-if(EDIT_ID) prefillFromDashboard();
+if(EDIT_ID) prefillFromDashboard(EDIT_ID,false);
+else if(COPY_ID) prefillFromDashboard(COPY_ID,true);
+else if(TEST_MODE) fillTestData();
+else offerDraftRestore();
 </script>
 </body>
 </html>
