@@ -333,7 +333,9 @@ const SECTIONS = [
     { key:"Has Budget", label:"Do you have budget for the event?", type:"select", required:true, options:["No","Yes"], full:true,
       showIf:v=> v["Region"]===SWO },
     { key:"Cost Breakdown", label:"Please provide a cost breakdown for the event", type:"textarea", required:true,
-      showIf:v=> v["Region"]===SWO && v["Has Budget"]==="Yes" }
+      showIf:v=> v["Region"]===SWO && v["Has Budget"]==="Yes" },
+    { key:"Primary Programming Language", label:"Primary Programming Language(s)", type:"text", required:true, full:true,
+      showIf:v=> v["Region"]===SWO }
   ]},
   { title:"👤 Contact Details", note:"This information is used for the Institutional Calendar entry and event coordination.", fields:[
     { key:"Name", label:"Your Name", type:"text", required:true, half:true },
@@ -379,7 +381,7 @@ const FIELD_ICONS = {
   "Responsible Board":"💼","Area of Focus":"🔭","Objective":"💡","Audience":"👥","Target Segments":"🎯",
   "Collaborating Boards":"🤝","Services needed":"🛠️","Expected Number of Attendees":"🧮",
   "Serving Refreshments":"🍽️","Refreshment Details":"🍴","Ticketed Event":"🎟️","Ticket Price":"💲",
-  "Has Budget":"💰","Cost Breakdown":"🧾","Name":"👤","Email Address":"✉️","Phone Number":"📞",
+  "Has Budget":"💰","Cost Breakdown":"🧾","Primary Programming Language":"🗣️","Name":"👤","Email Address":"✉️","Phone Number":"📞",
   "Event Leads":"📢","Project Lead Name":"⭐","Project Lead Email":"✉️","Project Lead Phone":"📞",
   "Day of Event Lead Name":"🏃","Day of Event Lead Email":"✉️","Day of Event Lead Phone":"📞"
 };
@@ -687,7 +689,8 @@ const PREFILL_MAP = {
   "Day Lead Name":{k:"Day of Event Lead Name",dec:1}, "Day Lead Email":{k:"Day of Event Lead Email",dec:1}, "Day Lead Phone":{k:"Day of Event Lead Phone",dec:1},
   "Serving Refreshments":{k:"Serving Refreshments"}, "Refreshment Details":{k:"Refreshment Details",dec:1},
   "Ticketed Event":{k:"Ticketed Event"}, "Ticket Price":{k:"Ticket Price",dec:1},
-  "Has Budget":{k:"Has Budget"}, "Cost Breakdown":{k:"Cost Breakdown",dec:1}
+  "Has Budget":{k:"Has Budget"}, "Cost Breakdown":{k:"Cost Breakdown",dec:1},
+  "Primary Programming Language":{k:"Primary Programming Language",dec:1}
 };
 function setField(k,val){ const fe=fieldEls[k]; if(fe && fe.set) fe.set(val); }
 async function prefillFromDashboard(id, isCopy){
@@ -745,7 +748,7 @@ const TEST_BASE = {
   "Audience":["Jamat"],"Target Segments":["All"],"Services needed":["Communications"],
   "Collaborating Boards":["Communications & Publications"],
   "Expected Number of Attendees":"51 - 100",
-  "Serving Refreshments":"No","Ticketed Event":"No","Has Budget":"No",
+  "Serving Refreshments":"No","Ticketed Event":"No","Has Budget":"No","Primary Programming Language":"English",
   "Name":"Test User","Email Address":"nurrali786@gmail.com","Phone Number":"2365551234",
   "Event Leads":"Requester is the Project Lead and Day Lead"
 };
@@ -797,7 +800,7 @@ function applyScenario(name){
   onChange();
   ["Target Segments","Collaborating Boards","Services needed","Expected Number of Attendees","Serving Refreshments","Ticketed Event","Has Budget"].forEach(k=>S(k,map[k]));
   onChange();
-  ["Refreshment Details","Ticket Price","Cost Breakdown","Name","Email Address","Phone Number","Event Leads"].forEach(k=>S(k,map[k]));
+  ["Refreshment Details","Ticket Price","Cost Breakdown","Primary Programming Language","Name","Email Address","Phone Number","Event Leads"].forEach(k=>S(k,map[k]));
   onChange();
   ["Project Lead Name","Project Lead Email","Project Lead Phone","Day of Event Lead Name","Day of Event Lead Email","Day of Event Lead Phone"].forEach(k=>S(k,map[k]));
   onChange();
