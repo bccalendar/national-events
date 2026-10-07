@@ -227,8 +227,19 @@ const BOARDS_NO_AOF = ["Conciliation & Arbitration Board (CAB)","Grants & Review
 const AOF_ITREB = ["Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Other"];
 const AOF_YSB   = ["Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth"];
 const AOF_OTHER = ["Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth","Other"];
-// NOTE: single Objective list for now. If you want objectives filtered by Area of Focus (as in Drupal),
-// send me the per-area objective sub-lists and I'll wire objectivesBy(area).
+// Objectives depend on the Area of Focus, exactly as on the Drupal form:
+//   ITREB: Adult Education -> 2 | BUI ECD / Primary / Secondary -> the same 5 | Jamati Activities -> 1 | Waezeen, Other -> free text
+//   YSB: every Area of Focus -> the same 5.  Other boards keep the general list below.
+const OBJ_ITREB_ADULT = ["Strengthen Ismaili identity (YSB) - Young Adult","Increase access to religious education for Adults 18+"];
+const OBJ_ITREB_BUI = ["Strengthen Ismaili identity (YSB) - Youth","Increase access to religious education for ages 4-18 (BUI, ERP)","Enhance the quality of religious education via teacher training and development","Expand and strengthen sustainable integrated coordinated programming","Parental engagement"];
+const OBJ_ITREB_JAMATI = ["Training and religious education to Jamati Leadership"];
+const OBJ_YSB = [
+  "All Ismaili youth will have the skills to be leaders in their discipline, within and outside the Shia Imami Ismaili community",
+  "Support and contribute to the development of resilient youth",
+  "All Ismaili youth will have a strong sense of identity, be able to articulate the values of and be ambassadors of the Shia Imami Ismaili community",
+  "All Ismaili youth will feel a sense of belonging within the Shia Imami Ismaili community",
+  "The Canadian Jamat will be healthy and active through their participation in organized/life sports and physical activity"
+];
 const OBJECTIVES = [
   "Strengthen Ismaili identity (YSB) - Young Adult",
   "Strengthen Ismaili identity (YSB) - Youth",
@@ -244,6 +255,26 @@ const OBJECTIVES = [
   "Parental engagement",
   "Training and religious education to Jamati Leadership"
 ];
+const FREE_OBJ_AOF = ["Waezeen","Other"];   // ITREB areas whose objective is typed in
+const isFreeObjective = v => v["Responsible Board"]===B_ITREB && FREE_OBJ_AOF.indexOf(v["Area of Focus"])!==-1;
+function objectivesFor(v){
+  const b=v["Responsible Board"], a=v["Area of Focus"]||"";
+  if(b===B_ITREB){
+    if(a==="Adult Education") return OBJ_ITREB_ADULT;
+    if(/^BUI /.test(a)) return OBJ_ITREB_BUI;
+    if(a==="Jamati Activities") return OBJ_ITREB_JAMATI;
+    return [];                      // Waezeen / Other / nothing chosen yet
+  }
+  if(b===B_YSB) return OBJ_YSB;
+  return OBJECTIVES;
+}
+function aofLabel(v){ return v["Responsible Board"]===B_ITREB ? "Area of Focus ITREB" : (v["Responsible Board"]===B_YSB ? "Area of Focus YSB" : "Area of Focus"); }
+function objLabel(v){
+  const b=v["Responsible Board"], a=v["Area of Focus"]||"";
+  if(b===B_YSB) return "Objective YSB";
+  if(b===B_ITREB){ if(a==="Adult Education") return "Objective ITREB Adult Education"; if(/^BUI /.test(a)) return "Objective ITREB BUI"; if(a==="Jamati Activities") return "Objective ITREB Jamati Activity"; }
+  return "Objective";
+}
 
 // Per-region event-location lists:
 const LOC_SWO = ["All Jamatkhanas","Brantford","Brampton","Guelph","Halton","Hamilton","Kitchener–Headquarters","London","Meadowvale","Mississauga","NiagaraFalls","Windsor","Other"];
@@ -306,13 +337,19 @@ const SECTIONS = [
   ]},
   { title:"🎯 Event Details", fields:[
     { key:"Responsible Board", label:"Responsible Board / Portfolio", type:"select", required:true, options:BOARDS },
-    { key:"Area of Focus", label:"Area of Focus", type:"select", required:true,
+    { key:"Area of Focus", label:"Area of Focus", labelBy:aofLabel, type:"select", required:true,
       help:"Enter the area of focus / sub-team for your Board/Portfolio.",
       optionsBy:v=> v["Responsible Board"]===B_ITREB ? AOF_ITREB : (v["Responsible Board"]===B_YSB ? AOF_YSB : AOF_OTHER),
       showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
-    { key:"Objective", label:"Objective", type:"select", required:true, options:OBJECTIVES, full:true,
+    { key:"Area of Focus Other", label:"Area of Focus ITREB Other", type:"text",
+      help:"Describe the area of focus.",
+      showIf:v=> v["Responsible Board"]===B_ITREB && v["Area of Focus"]==="Other" },
+    { key:"Objective", label:"Objective", labelBy:objLabel, type:"select", required:true, optionsBy:objectivesFor, full:true,
       help:"The objective of this event for your Board/Portfolio.",
-      showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
+      showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 && !isFreeObjective(v) && !(v["Responsible Board"]===B_ITREB && !v["Area of Focus"]) },
+    { key:"Objective Text", label:"Objective", type:"text", full:true,
+      help:"Enter the objective of this event for your Board/Portfolio.",
+      showIf:v=> isFreeObjective(v) },
     { key:"Audience", label:"Audience", type:"multiselect", required:true, options:AUDIENCE, pill:"pill-audience" },
     // Target Segments only when Audience includes "Jamat":
     { key:"Target Segments", label:"Target Segments", type:"multiselect", required:true, options:TARGET_SEGMENTS, pill:"pill-segments",
@@ -438,9 +475,12 @@ function buildField(def){
       list.forEach(o=> s.appendChild(el('option',{value:o.value}, o.label)));
       if(list.some(o=>o.value===cur)){ s.value=cur; } else { s.value=''; values[def.key]=''; }
     };
-    fill();
+    const lab = wrap.querySelector('label'), icon = lab && lab.querySelector('.ficon');
+    const relabel = ()=>{ if(def.labelBy && lab) lab.innerHTML = (icon?icon.outerHTML+' ':'') + def.labelBy(values) + (def.required?' <span class="req">*</span>':''); };
+    const fillAndLabel = ()=>{ fill(); relabel(); };
+    fillAndLabel();
     s.addEventListener('change',()=>{ values[def.key]=s.value; onChange(); });
-    if(def.optionsBy) rebuild = fill;
+    if(def.optionsBy) rebuild = fillAndLabel;
     setFn = (val)=>{ val = val==null?'':String(val); values[def.key]=val;
       if(val && !Array.prototype.some.call(s.options, o=>o.value===val)) s.appendChild(el('option',{value:val}, val));
       s.value = val; };
@@ -637,6 +677,12 @@ function buildPayload(){
     if(def.type==='multiselect'){ const a = Array.isArray(v)? v : []; fr[key] = def.join ? a.join(def.join) : a; }
     else { fr[key] = v==null? '' : String(v); }
   }
+  // Waezeen / Other: the objective is typed in (same value the Drupal form sends as "Objective")
+  if(String(fr["Objective Text"]||'').trim()) fr["Objective"] = String(fr["Objective Text"]).trim();
+  delete fr["Objective Text"];
+  // ITREB "Other" area text: the flow has no column for it, so it travels with the description (nothing is lost)
+  if(String(fr["Area of Focus Other"]||'').trim()) fr["Event Description"] = String(fr["Event Description"]||'') + "\n\nArea of Focus (Other): " + String(fr["Area of Focus Other"]).trim();
+  delete fr["Area of Focus Other"];
   ARRAY_KEYS.forEach(k=>{ if(!(k in fr)) fr[k]=[]; });
   return { FormResponse: fr };
 }
@@ -710,7 +756,9 @@ async function prefillFromDashboard(id, isCopy){
       else { val=m.dec?dec(val):String(val); if(m.date){ const mm=String(val).match(/^\d{4}-\d{2}-\d{2}/); val=mm?mm[0]:val; } if(m.time){ val=String(val).trim().toLowerCase(); } }
       setField(m.k, val);
     }
+    const _typedObjective = values["Objective"];   // a typed objective (Waezeen / Other) arrives in the select's slot; move it
     onChange();
+    if(isFreeObjective(values) && _typedObjective){ setField("Objective Text", _typedObjective); onChange(); }
     if(btn){ btn.disabled=false; btn.textContent=defLbl; }
   }catch(e){ showError('Could not load event #'+id+': '+e.message); if(btn){ btn.disabled=false; btn.textContent=defLbl; } }
 }
