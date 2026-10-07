@@ -226,7 +226,6 @@ const BOARDS_NO_AOF = ["Conciliation & Arbitration Board (CAB)","Grants & Review
 
 const AOF_ITREB = ["Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Other"];
 const AOF_YSB   = ["Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth"];
-const AOF_OTHER = ["Adult Education","BUI Early Childhood Development (ECD)","BUI Primary","BUI Secondary","Jamati Activities","Waezeen","Camps","Ismaili CIVIC","Positive Youth Development","Sports","Youth","Other"];
 // Objectives depend on the Area of Focus, exactly as on the Drupal form:
 //   ITREB: Adult Education -> 2 | BUI ECD / Primary / Secondary -> the same 5 | Jamati Activities -> 1 | Waezeen, Other -> free text
 //   YSB: every Area of Focus -> the same 5.  Other boards keep the general list below.
@@ -257,6 +256,8 @@ const OBJECTIVES = [
 ];
 const FREE_OBJ_AOF = ["Waezeen","Other"];   // ITREB areas whose objective is typed in
 const isFreeObjective = v => v["Responsible Board"]===B_ITREB && FREE_OBJ_AOF.indexOf(v["Area of Focus"])!==-1;
+// Every board except ITREB, YSB (fixed lists) and the three that show neither field (BOARDS_NO_AOF) has OPEN, typed Area of Focus and Objective fields.
+const isOpenBoard = v => !!v["Responsible Board"] && v["Responsible Board"]!==B_ITREB && v["Responsible Board"]!==B_YSB && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1;
 function objectivesFor(v){
   const b=v["Responsible Board"], a=v["Area of Focus"]||"";
   if(b===B_ITREB){
@@ -266,9 +267,9 @@ function objectivesFor(v){
     return [];                      // Waezeen / Other / nothing chosen yet
   }
   if(b===B_YSB) return OBJ_YSB;
-  return OBJECTIVES;
+  return [];                        // open boards type the objective
 }
-function aofLabel(v){ return v["Responsible Board"]===B_ITREB ? "Area of Focus ITREB" : (v["Responsible Board"]===B_YSB ? "Area of Focus YSB" : "Area of Focus"); }
+function aofLabel(v){ return v["Responsible Board"]===B_ITREB ? "Area of Focus ITREB" : "Area of Focus YSB"; }
 function objLabel(v){
   const b=v["Responsible Board"], a=v["Area of Focus"]||"";
   if(b===B_YSB) return "Objective YSB";
@@ -339,17 +340,23 @@ const SECTIONS = [
     { key:"Responsible Board", label:"Responsible Board / Portfolio", type:"select", required:true, options:BOARDS },
     { key:"Area of Focus", label:"Area of Focus", labelBy:aofLabel, type:"select", required:true,
       help:"Enter the area of focus / sub-team for your Board/Portfolio.",
-      optionsBy:v=> v["Responsible Board"]===B_ITREB ? AOF_ITREB : (v["Responsible Board"]===B_YSB ? AOF_YSB : AOF_OTHER),
-      showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 },
+      optionsBy:v=> v["Responsible Board"]===B_ITREB ? AOF_ITREB : AOF_YSB,
+      showIf:v=> v["Responsible Board"]===B_ITREB || v["Responsible Board"]===B_YSB },
+    { key:"Area of Focus Open", label:"Area of Focus", type:"text",
+      help:"Enter the area of focus / sub-team for your Board/Portfolio.",
+      showIf:v=> isOpenBoard(v) },
     { key:"Area of Focus Other", label:"Area of Focus ITREB Other", type:"text",
       help:"Describe the area of focus.",
       showIf:v=> v["Responsible Board"]===B_ITREB && v["Area of Focus"]==="Other" },
     { key:"Objective", label:"Objective", labelBy:objLabel, type:"select", required:true, optionsBy:objectivesFor, full:true,
       help:"The objective of this event for your Board/Portfolio.",
-      showIf:v=> v["Responsible Board"] && BOARDS_NO_AOF.indexOf(v["Responsible Board"])===-1 && !isFreeObjective(v) && !(v["Responsible Board"]===B_ITREB && !v["Area of Focus"]) },
+      showIf:v=> (v["Responsible Board"]===B_YSB || v["Responsible Board"]===B_ITREB) && !!v["Area of Focus"] && !isFreeObjective(v) },   // appears only once an Area of Focus is chosen
     { key:"Objective Text", label:"Objective", type:"text", full:true,
       help:"Enter the objective of this event for your Board/Portfolio.",
       showIf:v=> isFreeObjective(v) },
+    { key:"Objective Open", label:"Objective", type:"text", full:true,
+      help:"Enter the objective of this event for your Board/Portfolio.",
+      showIf:v=> isOpenBoard(v) },
     { key:"Audience", label:"Audience", type:"multiselect", required:true, options:AUDIENCE, pill:"pill-audience" },
     // Target Segments only when Audience includes "Jamat":
     { key:"Target Segments", label:"Target Segments", type:"multiselect", required:true, options:TARGET_SEGMENTS, pill:"pill-segments",
@@ -415,7 +422,7 @@ const FIELD_ICONS = {
   "Event Title":"📝","Event Type":"🏷️","Event Description":"🗒️","Event Start Date":"📅",
   "Start Time":"🕐","End Time":"🕔","Recurring Event":"🔁","Number Of Repeat Occurrences":"🔢",
   "Virtual Event":"💻","Event Location":"📍","Venue Name":"🏛️","Venue Address":"🗺️","Notes on Conflicts":"⚠️",
-  "Responsible Board":"💼","Area of Focus":"🔭","Objective":"💡","Audience":"👥","Target Segments":"🎯",
+  "Responsible Board":"💼","Area of Focus":"🔭","Area of Focus Open":"🔭","Objective":"💡","Objective Open":"💡","Objective Text":"💡","Audience":"👥","Target Segments":"🎯",
   "Collaborating Boards":"🤝","Services needed":"🛠️","Expected Number of Attendees":"🧮",
   "Serving Refreshments":"🍽️","Refreshment Details":"🍴","Ticketed Event":"🎟️","Ticket Price":"💲",
   "Has Budget":"💰","Cost Breakdown":"🧾","Primary Programming Language":"🗣️","Name":"👤","Email Address":"✉️","Phone Number":"📞",
@@ -678,8 +685,11 @@ function buildPayload(){
     else { fr[key] = v==null? '' : String(v); }
   }
   // Waezeen / Other: the objective is typed in (same value the Drupal form sends as "Objective")
-  if(String(fr["Objective Text"]||'').trim()) fr["Objective"] = String(fr["Objective Text"]).trim();
-  delete fr["Objective Text"];
+  const typedObj = String(fr["Objective Text"]||fr["Objective Open"]||'').trim();
+  if(typedObj) fr["Objective"] = typedObj;
+  delete fr["Objective Text"]; delete fr["Objective Open"];
+  if(String(fr["Area of Focus Open"]||'').trim()) fr["Area of Focus"] = String(fr["Area of Focus Open"]).trim();
+  delete fr["Area of Focus Open"];
   // ITREB "Other" area text: the flow has no column for it, so it travels with the description (nothing is lost)
   if(String(fr["Area of Focus Other"]||'').trim()) fr["Event Description"] = String(fr["Event Description"]||'') + "\n\nArea of Focus (Other): " + String(fr["Area of Focus Other"]).trim();
   delete fr["Area of Focus Other"];
@@ -756,9 +766,10 @@ async function prefillFromDashboard(id, isCopy){
       else { val=m.dec?dec(val):String(val); if(m.date){ const mm=String(val).match(/^\d{4}-\d{2}-\d{2}/); val=mm?mm[0]:val; } if(m.time){ val=String(val).trim().toLowerCase(); } }
       setField(m.k, val);
     }
-    const _typedObjective = values["Objective"];   // a typed objective (Waezeen / Other) arrives in the select's slot; move it
+    const _typedObjective = values["Objective"], _typedAof = values["Area of Focus"];   // typed values arrive in the selects' slots; move them
     onChange();
     if(isFreeObjective(values) && _typedObjective){ setField("Objective Text", _typedObjective); onChange(); }
+    if(isOpenBoard(values)){ if(_typedAof) setField("Area of Focus Open", _typedAof); if(_typedObjective) setField("Objective Open", _typedObjective); onChange(); }
     if(btn){ btn.disabled=false; btn.textContent=defLbl; }
   }catch(e){ showError('Could not load event #'+id+': '+e.message); if(btn){ btn.disabled=false; btn.textContent=defLbl; } }
 }
@@ -846,6 +857,7 @@ function applyScenario(name){
   onChange();
   ["Area of Focus","Objective","Audience"].forEach(k=>S(k,map[k]));
   onChange();
+  if(isOpenBoard(values)){ S("Area of Focus Open", map["Area of Focus"]||"Test area"); S("Objective Open", map["Objective"]||"Test objective"); onChange(); }
   ["Target Segments","Collaborating Boards","Services needed","Expected Number of Attendees","Serving Refreshments","Ticketed Event","Has Budget"].forEach(k=>S(k,map[k]));
   onChange();
   ["Refreshment Details","Ticket Price","Cost Breakdown","Primary Programming Language","Name","Email Address","Phone Number","Event Leads"].forEach(k=>S(k,map[k]));
