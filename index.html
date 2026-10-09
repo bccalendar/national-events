@@ -185,6 +185,14 @@ const REGIONS = [
   { label:"Quebec and Maritimes", value:"Quebec and Maritimes" }
 ];
 const SWO = "Southwest Ontario";
+const PRA = "Prairies";
+const isPra = v => v["Region"]===PRA;
+const hasLoc = (v,name) => Array.isArray(v["Event Location"]) && v["Event Location"].indexOf(name)!==-1;
+const ROOMS_PRA = ["Prayer Hall","Ante Room","Foyer","Social Hall","Classrooms","Other"];
+// Prairies wording, copied from the Prairies Centralized Booking Form (Drupal national form shows the same text)
+const PRA_CAL_NOTE = "The following information will be used to create the Council for the Prairies Institutional Calendar (Bookings) entry and room for your event.";
+const PRA_TYPE_HINT = "Programs are typically reoccurring such as Seniors Center, BUI etc.";
+const PRA_GENERATIONS = "Bookings outside of Thursday to Sunday must be coordinated directly with Generations";
 
 // Region-specific intro shown once a Region is selected. Add other regions' text as needed.
 const REGION_INTRO = {
@@ -204,6 +212,22 @@ const REGION_INTRO = {
     <li>Submit your event using this form. This will generate an approval workflow for Primary Approval, followed by Final Approval by the Institutional Delivery Excellence (IDE) Program Team.</li>
     <li>If your event is approved, you will receive a confirmation email and it will be added to the SWIC. You can then proceed with planning your event.</li>
     <li>If your event is not approved, you will receive an email with a comment explaining why the event was rejected. Once you have resolved this, you may resubmit a new request. If you need to add information regarding the resolution of the conflict or issue, use the 'Notes on Conflicts' field in the form.</li>
+    <li>If you are submitting a placeholder for your event, please put the word <strong>HOLD</strong> in the title so that others are aware this booking is tentative and may change.</li>
+  </ol>`,
+  "Prairies": `<p>Use this form to submit requests to be Approved and added to the Council for Prairies Institutional Calendar.</p>
+  <p><strong>General Considerations</strong></p>
+  <ul>
+    <li>No event should be considered approved until it is in the calendar.</li>
+    <li>All events or programs must be sponsored by a member of the local Council. All Jamati MKMK events at individual Jamatkhana&rsquo;s should be approved by Headquarters Mukhisaheb.</li>
+    <li>Planning 8-12 weeks out leads to better outcomes, attendance and cross collaboration.</li>
+  </ul>
+  <p>The approval process is as follows:</p>
+  <ol>
+    <li>Check the calendar ahead of submission for any location, time or target segment conflicts. Please try to resolve any conflicts with Boards/Portfolios ahead of submission, if possible.
+      <ul><li><em>Standing Block for Funerals: Bookings including setups will not be accepted from 9 a.m. to 1 p.m. on Tuesdays and Thursdays at Westwinds Jamatkhana and Saturdays at South Jamatkhana.</em></li></ul></li>
+    <li>Submit your event using this form. This will generate an approval workflow to your Board/Portfolio Chair for Primary Approval, followed by Council for the Prairies Honorary Secretary and/or ITREB for the Prairies Honorary Secretary for Final Approval.</li>
+    <li>If your event is approved, you will receive a confirmation email and it will be added to the Council for the Prairies Institutional Calendar. You can then proceed with planning your event.</li>
+    <li>If your event is not approved, you will receive an email with a comment explaining why the event was declined. Once you have resolved this, you may resubmit a new request. If you need to add information regarding the resolution of the conflict or issue, use the 'Notes on Conflicts' field in the form.</li>
     <li>If you are submitting a placeholder for your event, please put the word <strong>HOLD</strong> in the title so that others are aware this booking is tentative and may change.</li>
   </ol>`
 };
@@ -310,11 +334,11 @@ const EL_DDL = "Requester is the Project Lead, but the Day Lead is someone else"
 const SECTIONS = [
   { title:"📅 Calendar Details", note:"This information is used to create the Institutional Calendar entry and room booking for your event.", fields:[
     { key:"Region", label:"Region", type:"select", required:true, options:REGIONS },
-    { key:"Event Title", label:"Event Title", type:"text", required:true, full:true, help:"For a tentative booking, start the title with the word HOLD." },
+    { key:"Event Title", label:"Title", type:"text", required:true, full:true, help:"For a tentative booking, start the title with the word HOLD." },
     // Event Type is shown for all regions EXCEPT SWO (matches Drupal conditional):
-    { key:"Event Type", label:"Event Type", type:"select", options:EVENT_TYPES, full:true,
+    { key:"Event Type", label:"Booking Request", helpBy:v=> isPra(v)?PRA_TYPE_HINT:"", type:"select", options:EVENT_TYPES, full:true,
       showIf:v=> v["Region"] && v["Region"]!==SWO },
-    { key:"Event Description", label:"Event Description", type:"textarea", required:true },
+    { key:"Event Description", label:"Description", type:"textarea", required:true },
     { key:"Event Start Date", label:"Event Start Date", type:"date", required:true, full:true },
     { key:"Start Time", label:"Start Time", type:"time", required:true, half:true, help:"Include the setup time you'll need." },
     { key:"End Time", label:"End Time", type:"time", required:true, half:true, help:"Include the takedown/cleanup time you'll need." },
@@ -329,10 +353,17 @@ const SECTIONS = [
       help:"Select one or more locations.",
       optionsBy:v=> locationsFor(v["Region"]),
       showIf:v=> v["Virtual Event"]!=="Yes" },
+    // ---- Prairies only (same fields as the Prairies Centralized Booking Form) ----
+    { key:"Generations Notice", type:"note", text:PRA_GENERATIONS,
+      showIf:v=> isPra(v) && v["Virtual Event"]!=="Yes" && hasLoc(v,"Generations") },
+    { key:"Room Booking", label:"Room Booking", type:"multiselect", options:ROOMS_PRA, pill:"pill-rooms",
+      showIf:v=> isPra(v) && v["Virtual Event"]!=="Yes" && !hasLoc(v,"External venue") },
+    { key:"Room Other", label:"Room Other", type:"text", full:true,
+      showIf:v=> isPra(v) && v["Virtual Event"]!=="Yes" && !hasLoc(v,"External venue") && Array.isArray(v["Room Booking"]) && v["Room Booking"].indexOf("Other")!==-1 },
     { key:"Venue Name", label:"Venue Name", type:"text", required:true, full:true,
-      showIf:v=> v["Virtual Event"]!=="Yes" && Array.isArray(v["Event Location"]) && v["Event Location"].indexOf("Other")!==-1 },
+      showIf:v=> v["Virtual Event"]!=="Yes" && (hasLoc(v,"Other") || hasLoc(v,"External venue")) },
     { key:"Venue Address", label:"Venue Address", type:"textarea", required:true,
-      showIf:v=> v["Virtual Event"]!=="Yes" && Array.isArray(v["Event Location"]) && v["Event Location"].indexOf("Other")!==-1 },
+      showIf:v=> v["Virtual Event"]!=="Yes" && (hasLoc(v,"Other") || hasLoc(v,"External venue")) },
     { key:"Notes on Conflicts", label:"Notes on Conflicts", type:"textarea",
       help:"Optional — if you had conflicts and resolved them, add notes for the approvers (e.g. \"resolved conflict with Board X for Event Y, please delete event Z\")." }
   ]},
@@ -365,15 +396,15 @@ const SECTIONS = [
     { key:"Services needed", label:"Services Needed", type:"multiselect", required:true, options:SERVICES, pill:"pill-service",
       help:"Select all the services you'll require for your event." },
     { key:"Expected Number of Attendees", label:"Expected Number of Attendees", type:"select", required:true, options:ATTENDEES },
-    // ---- SWO-only fields (shown only when Region = Southwest Ontario) ----
-    { key:"Serving Refreshments", label:"Are you serving refreshments?", type:"select", required:true, options:["No","Yes"], full:true,
-      showIf:v=> v["Region"]===SWO },
+    // ---- Refreshments / tickets: SWO and Prairies. Budget, cost breakdown and language: SWO only ----
+    { key:"Serving Refreshments", label:"Are you serving refreshments?", type:"select", options:["No","Yes"], full:true,
+      showIf:v=> v["Region"]===SWO || isPra(v) },
     { key:"Refreshment Details", label:"Refreshment Details", type:"textarea", required:true,
-      showIf:v=> v["Region"]===SWO && v["Serving Refreshments"]==="Yes" },
-    { key:"Ticketed Event", label:"Does your event have tickets?", type:"select", required:true, options:["No","Yes","Yes (Subsidized)"],
-      showIf:v=> v["Region"]===SWO },
+      showIf:v=> (v["Region"]===SWO || isPra(v)) && v["Serving Refreshments"]==="Yes" },
+    { key:"Ticketed Event", label:"Does your event have tickets?", type:"select", options:["No","Yes","Yes (Subsidized)"],
+      showIf:v=> v["Region"]===SWO || isPra(v) },
     { key:"Ticket Price", label:"Ticket Price", type:"text", required:true,
-      showIf:v=> v["Region"]===SWO && (v["Ticketed Event"]==="Yes" || v["Ticketed Event"]==="Yes (Subsidized)") },
+      showIf:v=> (v["Region"]===SWO || isPra(v)) && (v["Ticketed Event"]==="Yes" || v["Ticketed Event"]==="Yes (Subsidized)") },
     { key:"Has Budget", label:"Do you have budget for the event?", type:"select", required:true, options:["No","Yes"], full:true,
       showIf:v=> v["Region"]===SWO },
     { key:"Cost Breakdown", label:"Please provide a cost breakdown for the event", type:"textarea", required:true,
@@ -466,6 +497,10 @@ const TIME_OPTIONS = buildTimeOptions();
 function validPhone(s){ const d=String(s||'').replace(/\D/g,''); return /^1?\d{10}$/.test(d); }
 
 function buildField(def){
+  if(def.type==='note'){ // static text, no value (Prairies Generations notice)
+    const nw = el('div',{class:'field','data-key':def.key}); nw.appendChild(el('div',{class:'section-note'}, def.text));
+    fieldEls[def.key]={wrap:nw, def, rebuild:null, set:null, relabel:null}; return nw;
+  }
   const wrap = el('div',{class:'field','data-key':def.key});
   const id = 'f_'+def.key.replace(/[^a-z0-9]/gi,'_');
   const ic = def.icon || FIELD_ICONS[def.key] || '';
@@ -576,7 +611,18 @@ function buildField(def){
   }
   wrap.appendChild(el('div',{class:'err'},'This field is required.'));
   if(def.help) wrap.appendChild(el('div',{class:'help'}, def.help));
-  fieldEls[def.key]={wrap, def, rebuild, set:setFn};
+  // region-dependent label / hint (used for the Prairies wording)
+  let relabel = null;
+  if(def.labelBy || def.helpBy){
+    const lab0 = wrap.querySelector('label'), icon0 = lab0 && lab0.querySelector('.ficon');
+    const hint = def.helpBy ? el('div',{class:'help'}) : null; if(hint){ hint.hidden=true; wrap.appendChild(hint); }
+    relabel = ()=>{
+      if(def.labelBy && lab0) lab0.innerHTML = (icon0?icon0.outerHTML+' ':'') + def.labelBy(values) + (def.required?' <span class="req">*</span>':'');
+      if(hint){ const t=def.helpBy(values); hint.textContent=t; hint.hidden=!t; }
+    };
+    relabel();
+  }
+  fieldEls[def.key]={wrap, def, rebuild, set:setFn, relabel};
   return wrap;
 }
 
@@ -593,7 +639,7 @@ function renderForm(){
     head.addEventListener('click', ()=> toggleCard(head));
     card.appendChild(head);
     const content = el('div',{class:'card-content'});
-    if(sec.note) content.appendChild(el('div',{class:'section-note'}, sec.note));
+    if(sec.note) content.appendChild(el('div',{class:'section-note','data-secnote':sec.title}, sec.note));
     const container = el('div',{class:'fields'});
     let buf=[];
     const flushPair=()=>{ if(buf.length){ const pr=el('div',{class:'pair'}); buf.forEach(w=>pr.appendChild(w)); container.appendChild(pr); buf=[]; } };
@@ -646,6 +692,9 @@ function updateRegionIntro(){
   const box = document.getElementById('regionIntro'); if(!box) return;
   const t = REGION_INTRO[values["Region"]];
   if(t){ box.innerHTML = t; box.hidden = false; } else { box.innerHTML=''; box.hidden = true; }
+  // Prairies: the Calendar Details and Contact Details notes carry the Prairies calendar name (as on the Prairies form)
+  SECTIONS.forEach(sec=>{ if(!sec.note) return; const n=document.querySelector('.section-note[data-secnote="'+sec.title+'"]'); if(!n) return;
+    n.textContent = (values["Region"]===PRA && /Calendar Details|Contact Details/.test(sec.title)) ? PRA_CAL_NOTE : sec.note; });
 }
 function onChange(){
   for(const key in fieldEls){ if(fieldEls[key].rebuild) fieldEls[key].rebuild(); }
@@ -654,6 +703,7 @@ function onChange(){
   document.querySelectorAll('.pair,.frow').forEach(pr=>{
     pr.hidden = Array.prototype.every.call(pr.children, c=>c.hidden);
   });
+  for(const key in fieldEls){ if(fieldEls[key].relabel) fieldEls[key].relabel(); }
   updateRegionIntro();
 }
 
@@ -679,6 +729,7 @@ function buildPayload(){
   const fr = { "Event Id": EDIT_ID || "", "Id": EDIT_ID? parseInt(EDIT_ID,10):0 };
   for(const key in fieldEls){
     const {wrap,def}=fieldEls[key];
+    if(def.type==='note') continue;
     let v = values[key];
     if(wrap.hidden){ v = (def.type==='multiselect')? [] : ''; }
     if(def.type==='multiselect'){ const a = Array.isArray(v)? v : []; fr[key] = def.join ? a.join(def.join) : a; }
@@ -766,6 +817,10 @@ async function prefillFromDashboard(id, isCopy){
       else { val=m.dec?dec(val):String(val); if(m.date){ const mm=String(val).match(/^\d{4}-\d{2}-\d{2}/); val=mm?mm[0]:val; } if(m.time){ val=String(val).trim().toLowerCase(); } }
       setField(m.k, val);
     }
+    if(Array.isArray(values["Room Booking"])){ // Prairies: "Other: <text>" -> tick Other and fill Room Other
+      let typed=''; const rb=values["Room Booking"].map(x=>{ const m=String(x).match(/^Other:\s*(.+)$/i); if(m){ typed=m[1].trim(); return 'Other'; } return x; });
+      if(typed){ setField("Room Booking", rb); setField("Room Other", typed); }
+    }
     const _typedObjective = values["Objective"], _typedAof = values["Area of Focus"];   // typed values arrive in the selects' slots; move them
     onChange();
     if(isFreeObjective(values) && _typedObjective){ setField("Objective Text", _typedObjective); onChange(); }
@@ -824,6 +879,8 @@ const TEST_SCENARIOS = {
   leads:     { _label:"Separate leads", "Event Leads":"Project Lead and Day Leads are someone else",
                "Project Lead Name":"Project Lead","Project Lead Email":"plead@example.com","Project Lead Phone":"2365550001",
                "Day of Event Lead Name":"Day Lead","Day of Event Lead Email":"dlead@example.com","Day of Event Lead Phone":"2365550002" },
+  prairies:  { _label:"Prairies", _region:"Prairies", "Event Type":"Meeting", "Event Location":["Generations"], "Room Booking":["Prayer Hall","Other"], "Room Other":"Gymnasium",
+               "Serving Refreshments":"Yes","Refreshment Details":"Tea and snacks","Ticketed Event":"No","Responsible Board":"Council for the Prairies" },
   special:   { _label:"Special chars", _title:'TEST "Quotes" & <Tags> \'apostrophe\'' },
   random:    { _label:"Random", _random:true }
 };
@@ -853,7 +910,7 @@ function applyScenario(name){
   onChange();
   if(map["Virtual Event"]!=="Yes"){ let loc=map["Event Location"]; if(!loc){ const opts=locationsFor(region); loc = sc._locOther?[opts[0],"Other"]:[opts[0]]; } S("Event Location", loc); }
   onChange();
-  ["Venue Name","Venue Address","Notes on Conflicts","Responsible Board"].forEach(k=>S(k,map[k]));
+  ["Room Booking","Room Other","Venue Name","Venue Address","Notes on Conflicts","Responsible Board"].forEach(k=>S(k,map[k]));
   onChange();
   ["Area of Focus","Objective","Audience"].forEach(k=>S(k,map[k]));
   onChange();
