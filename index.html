@@ -336,7 +336,7 @@ const SECTIONS = [
     { key:"Region", label:"Region", type:"select", required:true, options:REGIONS },
     { key:"Event Title", label:"Title", type:"text", required:true, full:true, help:"For a tentative booking, start the title with the word HOLD." },
     // Event Type is shown for all regions EXCEPT SWO (matches Drupal conditional):
-    { key:"Event Type", label:"Booking Request", helpBy:v=> isPra(v)?PRA_TYPE_HINT:"", type:"select", options:EVENT_TYPES, full:true,
+    { key:"Event Type", label:"Booking Type", helpBy:v=> isPra(v)?PRA_TYPE_HINT:"", type:"select", options:EVENT_TYPES, full:true,
       showIf:v=> v["Region"] && v["Region"]!==SWO },
     { key:"Event Description", label:"Description", type:"textarea", required:true },
     { key:"Event Start Date", label:"Event Start Date", type:"date", required:true, full:true },
